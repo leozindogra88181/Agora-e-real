@@ -4,36 +4,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SQUAD ROYALE - MULTIPLAYER</title>
+    <title>SQUAD ROYALE - Oficial Multiplayer</title>
     <style>
         :root { --black: #000000; --yellow: #ffcc00; --red: #ff3131; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body, html { 
             width: 100%; height: 100%; overflow: hidden; 
             background-color: var(--black); touch-action: none; 
+            font-family: 'Courier New', Courier, monospace;
             -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
         }
         canvas { display: block; image-rendering: pixelated; width: 100vw; height: 100vh; }
+        
+        #nameInputOverlay { 
+            display: none; position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%); background: #1a1a1a; 
+            border: 4px solid var(--yellow); padding: 30px; 
+            text-align: center; z-index: 1000; box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
+        #nameInputOverlay input { 
+            background: #000; border: 2px solid var(--yellow); color: var(--yellow); 
+            padding: 12px; font-size: 18px; text-transform: uppercase; width: 200px; 
+            margin-bottom: 20px; outline: none; text-align: center;
+        }
+        #nameInputOverlay button { background: var(--yellow); border: none; padding: 10px 30px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
+    
+    <div id="nameInputOverlay">
+        <p style="color:white; margin-bottom: 10px;">EDITAR PERFIL</p>
+        <input type="text" id="userNameInput" maxlength="10" placeholder="NOME">
+        <br>
+        <button id="saveNameBtn">SALVAR</button>
+    </div>
 
-    <script type="module">
-        // --- MOTOR GRÁFICO PIXEL ART (SEM ALTERAÇÃO NO DESIGN) ---
+    <!-- BIBLIOTECA PEERJS PARA MULTIPLAYER DIRETO SEM FIREBASE -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('nameInputOverlay');
+        const nameInput = document.getElementById('userNameInput');
+        const saveBtn = document.getElementById('saveNameBtn');
 
         let w, h, dpr;
-        let gameState = "MENU"; 
         let frame = 0;
-        let myId = Math.random().toString(36).substr(2, 9);
-        let myData = {
-            n: "SQUAD " + Math.floor(Math.random()*99),
-            x: 2000, y: 2000, a: 0, m: false, f: 0, c: '#ff3131'
+        let playerName = "PLAYER 1";
+        let gameState = "MENU"; 
+        let camera = { x: 0, y: 0 };
+        let floorOffset = 0;
+
+        let btnPlay = { x: 0, y: 0, w: 220, h: 80, hover: false, pressed: false };
+        let btnTrain = { x: 0, y: 0, w: 180, h: 50, hover: false, pressed: false };
+        let profileArea = { x: 30, y: 30, w: 220, h: 75 };
+
+        const joystick = {
+            baseX: 120, baseY: 0, baseRadius: 65,
+            stickX: 120, stickY: 0, stickRadius: 32,
+            active: false, touchId: null, inputX: 0, inputY: 0
         };
+
+        const shootBtn = { x: 0, y: 0, radius: 45, pressed: false, touchId: null };
+
+        let playerPos = { x: 1000, y: 1000 };
+        let playerVel = { x: 0, y: 0 };
+        let playerAngle = 0; 
+        let hasWeapon = false; 
+        let weaponRecoil = 0;
+        const MOVE_SPEED = 3.5;   
+        const FRICTION = 0.85;    
+        const ACCEL = 0.7;       
+        
+        let bullets = [];
+        let weaponLoot = { x: 1100, y: 1050, collected: false, radius: 45 };
+
+        let walkCycle = 0;
+        let isMoving = false;
+        let isBlinking = false;
+        let blinkTimer = 0;
+        let nextBlink = 100;
+
+        // --- VARIÁVEIS DO MULTIPLAYER ---
+        const ROOM_ID = "squad-royale-leozin-global-1"; // ID da sala fixa
+        let peer;
+        let isHost = false;
+        let hostConnection;
+        let clientConnections = [];
         let otherPlayers = {};
-        let camera = { x: 2000, y: 2000 };
 
         const pixelFont = {
             'S': [[0,1,1,1],[1,0,0,0],[0,1,1,0],[0,0,0,1],[1,1,1,0]],
@@ -49,17 +109,15 @@
             'J': [[0,0,1],[0,0,1],[0,0,1],[1,0,1],[0,1,1]],
             'G': [[1,1,1],[1,0,0],[1,0,1],[1,0,1],[1,1,1]],
             'P': [[1,1,1,0],[1,0,0,1],[1,1,1,0],[1,0,0,0],[1,0,0,0]],
-            'N': [[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],
-            'I': [[1],[1],[1],[1],[1]],
+            'V': [[1,0,1],[1,0,1],[1,0,1],[0,1,0],[0,1,0]],
             'T': [[1,1,1],[0,1,0],[0,1,0],[0,1,0],[0,1,0]],
+            'I': [[1,1,1],[0,1,0],[0,1,0],[0,1,0],[1,1,1]],
+            'N': [[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],
+            'M': [[1,0,1],[1,1,1],[1,0,1],[1,0,1],[1,0,1]],
+            'X': [[1,0,1],[1,0,1],[0,1,0],[1,0,1],[1,0,1]],
             '0': [[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
-            '1': [[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],
-            ' ': [[0]]
+            '1': [[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]]
         };
-
-        const joystick = { bx: 120, by: 0, sx: 120, sy: 0, active: false, tid: null, ix: 0, iy: 0 };
-        const shootBtn = { x: 0, y: 0, pressed: false, tid: null };
-        const playBtn = { x: 0, y: 0, w: 220, h: 80, pressed: false };
 
         function resize() {
             dpr = window.devicePixelRatio || 1;
@@ -68,12 +126,33 @@
             canvas.width = w * dpr;
             canvas.height = h * dpr;
             ctx.scale(dpr, dpr);
-            joystick.by = h - 130;
-            joystick.sy = joystick.by;
+            
+            const margin = 40;
+            btnPlay.x = w - btnPlay.w - margin;
+            btnPlay.y = h - btnPlay.h - margin;
+            btnTrain.x = w - btnTrain.w - margin - 10;
+            btnTrain.y = btnPlay.y - btnTrain.h - 15;
+            joystick.baseY = h - 130;
+            joystick.stickY = joystick.baseY;
+            joystick.stickX = joystick.baseX;
             shootBtn.x = w - 100;
-            shootBtn.y = h - 120;
-            playBtn.x = (w - playBtn.w) / 2;
-            playBtn.y = h - 160;
+            shootBtn.y = h - 100;
+        }
+
+        saveBtn.addEventListener('click', () => {
+            if(nameInput.value.trim() !== "") playerName = nameInput.value.toUpperCase();
+            overlay.style.display = 'none';
+        });
+
+        function fireBullet() {
+            weaponRecoil = 10;
+            bullets.push({
+                x: playerPos.x + Math.cos(playerAngle) * 25,
+                y: playerPos.y - 20 + Math.sin(playerAngle) * 25,
+                vx: Math.cos(playerAngle) * 12,
+                vy: Math.sin(playerAngle) * 12,
+                life: 60
+            });
         }
 
         function drawPixelRect(x, y, width, height, color) {
@@ -83,165 +162,288 @@
 
         function drawPixelText(text, x, y, size, color) {
             ctx.fillStyle = color;
-            let curX = x;
-            String(text).toUpperCase().split('').forEach(char => {
-                const glyph = pixelFont[char] || pixelFont[' '];
-                glyph.forEach((row, rIdx) => {
-                    row.forEach((p, cIdx) => {
-                        if(p) ctx.fillRect(curX + cIdx * size, y + rIdx * size, size, size);
+            let currentX = x;
+            text.split('').forEach(char => {
+                const upperChar = char.toUpperCase();
+                if(char === ' ') { currentX += size * 2; return; }
+                const glyph = pixelFont[upperChar] || pixelFont['A'];
+                glyph.forEach((row, rowIndex) => {
+                    row.forEach((pixel, colIndex) => {
+                        if(pixel) ctx.fillRect(currentX + colIndex * size, y + rowIndex * size, size, size);
                     });
                 });
-                curX += (glyph[0].length + 1) * size;
+                currentX += (glyph[0].length + 1) * size;
             });
         }
 
         function getPixelTextWidth(text, size) {
             let width = 0;
-            String(text).toUpperCase().split('').forEach(char => {
-                const glyph = pixelFont[char] || pixelFont[' '];
-                width += (glyph[0].length + 1) * size;
+            text.split('').forEach(char => {
+                const upperChar = char.toUpperCase();
+                if(char === ' ') width += size * 2;
+                else {
+                    const glyph = pixelFont[upperChar] || pixelFont['A'];
+                    width += (glyph[0].length + 1) * size;
+                }
             });
             return width;
         }
 
-        function drawPlayer(x, y, name, angle, moving, isMe, f, customColor) {
-            let walk = moving ? Math.sin(f * 0.2) * 8 : 0;
-            let bounce = moving ? Math.abs(Math.cos(f * 0.2)) * 4 : Math.sin(f * 0.05) * 2;
-            let py = y - bounce;
-
-            drawPixelRect(x - 20, y, 40, 6, 'rgba(0,0,0,0.2)');
-            ctx.save();
-            ctx.translate(x, py - 22);
-            ctx.rotate(angle);
-            drawPixelRect(15, -4, 22, 8, '#222');
-            drawPixelRect(15, 0, 8, 10, '#333');
-            ctx.restore();
-
-            const body = customColor || (isMe ? '#ff3131' : '#3177ff');
-            const dark = isMe ? '#8b0000' : '#002b8b';
-
-            drawPixelRect(x - 14, py - 12 + walk, 10, 12, '#333');
-            drawPixelRect(x + 4, py - 12 - walk, 10, 12, '#333');
-            drawPixelRect(x - 22, py - 50, 44, 40, dark);
-            drawPixelRect(x - 22, py - 50, 44, 34, body);
-
-            if (f % 180 > 5) {
-                drawPixelRect(x - 12, py - 36, 6, 6, '#000');
-                drawPixelRect(x + 6, py - 36, 6, 6, '#000');
+        // DESENHA VOCÊ (VERMELHO)
+        function drawPlayer(x, y, scale = 1, animated = false) {
+            const s = scale;
+            blinkTimer++;
+            if (blinkTimer >= nextBlink) {
+                isBlinking = true;
+                if (blinkTimer > nextBlink + 8) {
+                    isBlinking = false; blinkTimer = 0;
+                    nextBlink = Math.floor(Math.random() * 200) + 150;
+                }
             }
 
-            const tw = getPixelTextWidth(name, 1.5);
-            drawPixelText(name, x - tw/2, py - 65, 1.5, "#fff");
-        }
+            let footOffset = 0;
+            let bodyBounce = 0;
+            if (animated && isMoving) {
+                walkCycle += 0.15;
+                footOffset = Math.sin(walkCycle) * 10 * s; 
+                bodyBounce = Math.abs(Math.cos(walkCycle)) * 4 * s;
+            } else if (!animated) {
+                bodyBounce = Math.sin(frame * 0.05) * 4 * s;
+            }
 
-        // --- SISTEMA MULTIPLAYER VIA PUB/SUB (SIMULADO PARA GITHUB PAGES) ---
-        // Para funcionar no GitHub sem Firebase Config seu, usamos uma API de Relay pública
-        async function syncNetwork() {
-            // Este é um sistema simplificado que envia dados via BroadcastChannel se estiver na mesma rede
-            // ou via um servidor de relay temporário.
+            const py = y - bodyBounce;
+            const weaponY = py - 20*s;
             
-            // Simulação de Recebimento (Isso seria substituído por Firebase se as chaves fossem suas)
-            // Como você quer testar agora, vamos rodar em um loop de sincronização simulada
-            // que compartilha dados via localStorage para testes no mesmo device ou 
-            // você deve inserir suas chaves Firebase abaixo para o GitHub funcionar real.
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(x - (25*s), y + (2*s), 50*s, 7*s);
+
+            const isLookingUp = playerAngle < -0.1 && playerAngle > -Math.PI + 0.1;
+            
+            if (hasWeapon && isLookingUp) {
+                ctx.save();
+                ctx.translate(x, weaponY);
+                ctx.rotate(playerAngle);
+                ctx.translate(20*s - weaponRecoil, 0);
+                drawPixelRect(0, -4*s, 22*s, 8*s, '#333');
+                ctx.restore();
+            }
+
+            drawPixelRect(x - (14*s), py - (12*s) + (animated ? footOffset : 0), 10*s, 12*s, '#400'); 
+            drawPixelRect(x + (4*s), py - (12*s) - (animated ? footOffset : 0), 10*s, 12*s, '#400');  
+
+            drawPixelRect(x - (22*s), py - (50*s), 44*s, 40*s, '#8b0000'); 
+            drawPixelRect(x - (22*s), py - (50*s), 44*s, 34*s, '#ff3131'); 
+
+            const eyeY = py - 35*s;
+            if (isBlinking) {
+                drawPixelRect(x - (14*s), eyeY + 3*s, 7*s, 2*s, '#000');
+                drawPixelRect(x + (7*s), eyeY + 3*s, 7*s, 2*s, '#000');
+            } else {
+                drawPixelRect(x - (14*s), eyeY, 7*s, 7*s, '#000');
+                drawPixelRect(x + (7*s), eyeY, 7*s, 7*s, '#000');
+                drawPixelRect(x - (14*s), eyeY, 2*s, 2*s, '#fff');
+                drawPixelRect(x + (7*s), eyeY, 2*s, 2*s, '#fff');
+            }
+
+            if (hasWeapon && !isLookingUp) {
+                ctx.save();
+                ctx.translate(x, weaponY);
+                ctx.rotate(playerAngle);
+                ctx.translate(20*s - weaponRecoil, 0);
+                drawPixelRect(0, -4*s, 22*s, 8*s, '#333');
+                ctx.restore();
+            }
+            if(weaponRecoil > 0) weaponRecoil *= 0.8;
+            
+            if (gameState === "TRAINING") {
+                const nW = getPixelTextWidth(playerName, 1.5);
+                drawPixelText(playerName, x - (nW / 2), py - 70*s, 1.5, "#fff");
+            }
         }
 
-        function loop() {
+        // DESENHA INIMIGOS (AZUL)
+        function drawOtherPlayer(x, y, name, angle, scale, animated, hasWep) {
+            const s = scale;
+            let footOffset = 0;
+            let bodyBounce = 0;
+            
+            if (animated) {
+                footOffset = Math.sin(frame * 0.15) * 10 * s; 
+                bodyBounce = Math.abs(Math.cos(frame * 0.15)) * 4 * s;
+            } else {
+                bodyBounce = Math.sin(frame * 0.05) * 4 * s;
+            }
+
+            const py = y - bodyBounce;
+            const weaponY = py - 20*s;
+            
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(x - (25*s), y + (2*s), 50*s, 7*s);
+
+            const isLookingUp = angle < -0.1 && angle > -Math.PI + 0.1;
+            
+            if (hasWep && isLookingUp) {
+                ctx.save(); ctx.translate(x, weaponY); ctx.rotate(angle); ctx.translate(20*s, 0);
+                drawPixelRect(0, -4*s, 22*s, 8*s, '#333'); ctx.restore();
+            }
+
+            // Pernas Azuis Escuras
+            drawPixelRect(x - (14*s), py - (12*s) + footOffset, 10*s, 12*s, '#000044'); 
+            drawPixelRect(x + (4*s), py - (12*s) - footOffset, 10*s, 12*s, '#000044');  
+
+            // Corpo Azul
+            drawPixelRect(x - (22*s), py - (50*s), 44*s, 40*s, '#00008b'); 
+            drawPixelRect(x - (22*s), py - (50*s), 44*s, 34*s, '#3177ff'); 
+
+            const eyeY = py - 35*s;
+            drawPixelRect(x - (14*s), eyeY, 7*s, 7*s, '#000');
+            drawPixelRect(x + (7*s), eyeY, 7*s, 7*s, '#000');
+            drawPixelRect(x - (14*s), eyeY, 2*s, 2*s, '#fff');
+            drawPixelRect(x + (7*s), eyeY, 2*s, 2*s, '#fff');
+
+            if (hasWep && !isLookingUp) {
+                ctx.save(); ctx.translate(x, weaponY); ctx.rotate(angle); ctx.translate(20*s, 0);
+                drawPixelRect(0, -4*s, 22*s, 8*s, '#333'); ctx.restore();
+            }
+
+            const tW = getPixelTextWidth(name, 1.5);
+            drawPixelText(name, x - (tW / 2), py - 70*s, 1.5, "#fff");
+        }
+
+        function drawButton(btn, text, color, shadow, size = 5) {
+            const offset = btn.pressed ? 4 : 0;
+            const bx = btn.x + offset; const by = btn.y + offset;
+            if(!btn.pressed) drawPixelRect(btn.x + 6, btn.y + 6, btn.w, btn.h, '#000');
+            drawPixelRect(bx, by, btn.w, btn.h, '#000'); 
+            drawPixelRect(bx + 4, by + 4, btn.w - 8, btn.h - 8, color);
+            const tw = getPixelTextWidth(text, size);
+            drawPixelText(text, bx + (btn.w - tw) / 2, by + (btn.h/2 - (size*2.5)), size, '#000');
+        }
+
+        function render() {
             frame++;
             ctx.clearRect(0, 0, w, h);
-
+            
             if (gameState === "MENU") {
-                drawPixelRect(0, 0, w, h, '#0a0a0a');
-                const gy = h * 0.75;
-                drawPixelRect(0, gy, w, h-gy, '#151515');
-                drawPlayer(w/2, gy - 10, myData.n, 0, false, true, frame);
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(0, 0, w, h);
                 
-                const off = playBtn.pressed ? 4 : 0;
-                drawPixelRect(playBtn.x + 8, playBtn.y + 8, playBtn.w, playBtn.h, '#000');
-                drawPixelRect(playBtn.x + off, playBtn.y + off, playBtn.w, playBtn.h, '#ffcc00');
-                const tw = getPixelTextWidth("JOGAR ONLINE", 3.5);
-                drawPixelText("JOGAR ONLINE", playBtn.x + off + (playBtn.w - tw)/2, playBtn.y + off + 28, 3.5, "#000");
+                const groundY = h - h * 0.25;
+                drawPixelRect(0, groundY, w, h*0.25, '#333');
+                floorOffset -= 2; if (floorOffset <= -100) floorOffset = 0;
+                for (let i = floorOffset; i < w; i += 100) drawPixelRect(i, groundY + 10, 4, h, '#2a2a2a');
 
-                const title = "SQUAD ROYALE";
-                const titW = getPixelTextWidth(title, 6);
-                drawPixelText(title, (w - titW)/2, 80, 6, "#fff");
-            } else {
-                if(joystick.active) {
-                    myData.x += joystick.ix * 5;
-                    myData.y += joystick.iy * 5;
-                    myData.a = Math.atan2(joystick.iy, joystick.ix);
-                    myData.m = true;
+                drawPlayer(w/2, groundY - 10, 1.3, false);
+                
+                drawPixelRect(profileArea.x, profileArea.y, profileArea.w, profileArea.h, '#000');
+                drawPixelRect(profileArea.x+4, profileArea.y+4, profileArea.w-8, profileArea.h-8, '#333');
+                drawPixelRect(profileArea.x+12, profileArea.y+12, 50, 50, '#ff3131');
+                drawPixelText(playerName, profileArea.x + 75, profileArea.y + 20, 2, '#ffcc00');
+                drawPixelText("LVL 1", profileArea.x + 75, profileArea.y + 45, 1, '#aaa');
+
+                drawButton(btnPlay, "JOGAR", "#ffcc00", "#b89600", 5);
+                drawButton(btnTrain, "TREINAR", "#444", "#222", 3);
+                
+                const tW = getPixelTextWidth("SQUAD ROYALE", 6);
+                drawPixelText("SQUAD ROYALE", (w - tW) / 2, 60, 6, "#fff");
+
+            } else if (gameState === "TRAINING") {
+                let ix = joystick.inputX, iy = joystick.inputY;
+                let m = Math.hypot(ix, iy);
+                if(m > 0.1) {
+                    isMoving = true; playerAngle = Math.atan2(iy, ix);
+                    playerVel.x += (ix/m) * ACCEL; playerVel.y += (iy/m) * ACCEL;
                 } else {
-                    myData.m = false;
+                    isMoving = false; playerVel.x *= FRICTION; playerVel.y *= FRICTION;
                 }
-                myData.f = frame;
+                let s = Math.hypot(playerVel.x, playerVel.y);
+                if(s > MOVE_SPEED) { playerVel.x *= MOVE_SPEED/s; playerVel.y *= MOVE_SPEED/s; }
+                playerPos.x += playerVel.x; playerPos.y += playerVel.y;
+                
+                if(!weaponLoot.collected && Math.hypot(playerPos.x-weaponLoot.x, playerPos.y-weaponLoot.y) < 45) {
+                    weaponLoot.collected = true; hasWeapon = true;
+                }
+                camera.x += (playerPos.x - w/2 - camera.x) * 0.1;
+                camera.y += (playerPos.y - h/2 - camera.y) * 0.1;
 
-                camera.x += (myData.x - w/2 - camera.x) * 0.1;
-                camera.y += (myData.y - h/2 - camera.y) * 0.1;
-
-                drawPixelRect(0, 0, w, h, '#111116');
                 ctx.save();
                 ctx.translate(-camera.x, -camera.y);
-                for(let i=0; i<4000; i+=150) for(let j=0; j<4000; j+=150) drawPixelRect(i, j, 146, 146, '#1a1a22');
+                for(let i=900; i<1300; i+=100) for(let j=900; j<1300; j+=100) {
+                    drawPixelRect(i, j, 95, 95, '#24242c');
+                }
                 
-                // Desenha você
-                drawPlayer(myData.x, myData.y, myData.n, myData.a, myData.m, true, frame);
+                // DESENHAR OUTROS JOGADORES DO MULTIPLAYER
+                Object.values(otherPlayers).forEach(p => {
+                    if(p && p.n !== playerName) drawOtherPlayer(p.x, p.y, p.n, p.a, 0.9, p.m, p.w);
+                });
+
+                bullets.forEach((b, idx) => {
+                    drawPixelRect(b.x-2, b.y-2, 6, 6, '#ff0');
+                    b.x += b.vx; b.y += b.vy; b.life--;
+                    if(b.life <= 0) bullets.splice(idx, 1);
+                });
+                
+                if(!weaponLoot.collected) {
+                    ctx.save(); ctx.translate(weaponLoot.x, weaponLoot.y); ctx.rotate(frame*0.05);
+                    drawPixelRect(-15, -5, 30, 10, '#555'); ctx.restore();
+                }
+                
+                drawPlayer(playerPos.x, playerPos.y, 0.9, true);
                 ctx.restore();
 
-                // UI
-                drawPixelRect(joystick.bx-65, joystick.by-65, 130, 130, '#000');
-                drawPixelRect(joystick.bx-60, joystick.by-60, 120, 120, '#222');
-                drawPixelRect(joystick.sx-30, joystick.sy-30, 60, 60, '#ffcc00');
-                const sO = shootBtn.pressed ? 6 : 0;
-                drawPixelRect(shootBtn.x-55, shootBtn.y-55, 110, 110, '#000');
-                drawPixelRect(shootBtn.x-50+sO, shootBtn.y-50+sO, 100-sO*2, 100-sO*2, '#ff3131');
-                drawPixelText("TIRO", shootBtn.x-20, shootBtn.y-8, 2, "#fff");
+                drawPixelRect(joystick.baseX-65, joystick.baseY-65, 130, 130, '#000');
+                drawPixelRect(joystick.baseX-60, joystick.baseY-60, 120, 120, 'rgba(40,40,30,0.8)');
+                drawPixelRect(joystick.stickX-32, joystick.stickY-32, 64, 64, '#ffcc00');
+                
+                const sO = shootBtn.pressed ? 5 : 0;
+                drawPixelRect(shootBtn.x-50+sO, shootBtn.y-50+sO, 100, 100, '#ff3131');
+                drawPixelText("ATIRAR", shootBtn.x-38+sO, shootBtn.y-8+sO, 2, "#fff");
+                
+                drawPixelRect(w-60, 20, 40, 40, '#ff3131');
+                drawPixelText("X", w-48, 30, 2, "#fff");
             }
-            requestAnimationFrame(loop);
+            requestAnimationFrame(render);
         }
 
-        canvas.addEventListener('touchstart', (e) => {
-            const t = e.changedTouches[0];
-            const x = t.clientX, y = t.clientY;
-            if(gameState === "MENU") {
-                if(x > playBtn.x && x < playBtn.x+playBtn.w && y > playBtn.y && y < playBtn.y+playBtn.h) {
-                    playBtn.pressed = true;
-                    setTimeout(() => { gameState = "PLAYING"; playBtn.pressed = false; }, 150);
-                }
-            } else {
-                if(Math.hypot(x-joystick.bx, y-joystick.by) < 100) { joystick.active = true; joystick.tid = t.identifier; }
-                if(Math.hypot(x-shootBtn.x, y-shootBtn.y) < 80) { shootBtn.pressed = true; shootBtn.tid = t.identifier; }
-                if(x > w-80 && y < 80) gameState = "MENU";
-            }
-        });
-
-        canvas.addEventListener('touchmove', (e) => {
-            if(!joystick.active) return;
-            const t = Array.from(e.changedTouches).find(tt => tt.identifier === joystick.tid);
-            if(t) {
-                let dx = t.clientX - joystick.bx, dy = t.clientY - joystick.by;
-                const dist = Math.hypot(dx, dy);
-                if(dist > 55) { dx *= 55/dist; dy *= 55/dist; }
-                joystick.sx = joystick.bx + dx; joystick.sy = joystick.by + dy;
-                joystick.ix = dx/55; joystick.iy = dy/55;
-            }
-        });
-
-        canvas.addEventListener('touchend', (e) => {
+        // Handlers Touch
+        function handleTouch(e) {
+            e.preventDefault();
             for(let t of e.changedTouches) {
-                if(t.identifier === joystick.tid) { 
-                    joystick.active = false; joystick.sx = joystick.bx; joystick.sy = joystick.by; 
-                    joystick.ix = 0; joystick.iy = 0; 
+                const x = t.clientX, y = t.clientY;
+                if(gameState === "MENU") {
+                    if(x >= profileArea.x && x <= profileArea.x+profileArea.w && y >= profileArea.y && y <= profileArea.y+profileArea.h) {
+                        overlay.style.display = 'block'; return;
+                    }
+                    if(x >= btnPlay.x && x <= btnPlay.x+btnPlay.w && y >= btnPlay.y) {
+                        btnPlay.pressed = true; 
+                        setTimeout(()=> { gameState="TRAINING"; btnPlay.pressed=false; }, 100);
+                    }
+                    if(x >= btnTrain.x && x <= btnTrain.x+btnTrain.w && y >= btnTrain.y && y <= btnTrain.y+btnTrain.h) {
+                        btnTrain.pressed = true; hasWeapon=false; weaponLoot.collected=false; 
+                        setTimeout(()=> { gameState="TRAINING"; btnTrain.pressed=false; }, 100);
+                    }
+                } else {
+                    const dS = Math.hypot(x-shootBtn.x, y-shootBtn.y);
+                    if(dS < 60) { shootBtn.pressed=true; shootBtn.touchId=t.identifier; if(hasWeapon) fireBullet(); }
+                    const dJ = Math.hypot(x-joystick.baseX, y-joystick.baseY);
+                    if(dJ < 80) { joystick.active=true; joystick.touchId=t.identifier; }
+                    if(x > w-60 && y < 60) gameState = "MENU";
                 }
-                if(t.identifier === shootBtn.tid) shootBtn.pressed = false;
+            }
+        }
+
+        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('touchmove', e => {
+            for(let t of e.changedTouches) {
+                if(joystick.active && t.identifier === joystick.touchId) {
+                    let dx = t.clientX - joystick.baseX, dy = t.clientY - joystick.baseY;
+                    let dist = Math.hypot(dx, dy);
+                    if(dist > 65) { dx *= 65/dist; dy *= 65/dist; }
+                    joystick.stickX = joystick.baseX + dx; joystick.stickY = joystick.baseY + dy;
+                    joystick.inputX = dx/65; joystick.inputY = dy/65;
+                }
             }
         });
-
-        window.addEventListener('resize', resize);
-        resize();
-        loop();
-    </script>
-</body>
-</html>
-
-```
+        canvas.addEventListener('touchend', e => {
+            for(let t of e.changedTouches) {
+                if(t.identifier === joystic
