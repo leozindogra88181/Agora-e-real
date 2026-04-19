@@ -1,11 +1,321 @@
+```html
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
-    <title>Teste</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SQUAD ROYALE - MULTIPLAYER ONLINE</title>
+    <style>
+        :root { --black: #000000; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { 
+            width: 100%; height: 100%; overflow: hidden; 
+            background-color: var(--black); touch-action: none; 
+            -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+        }
+        canvas { display: block; image-rendering: pixelated; width: 100vw; height: 100vh; }
+    </style>
 </head>
-<body style="background-color: black; color: white; text-align: center; font-family: sans-serif; padding-top: 50px;">
-    <h1>🚀 O SITE FUNCIONOU!</h1>
-    <p>Se você está lendo isso, o erro 404 morreu.</p>
-    <p>O problema era o código do jogo que estava travado.</p>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // Firebase Configuração - Puxando do ambiente seguro
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'squad-royale-web-v1';
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let w, h, dpr;
+        let gameState = "MENU"; 
+        let frame = 0;
+        let user = null;
+        let myData = {
+            n: "SQUAD " + Math.floor(Math.random()*999),
+            x: 2000, y: 2000, a: 0, m: false, f: 0
+        };
+        let otherPlayers = {};
+
+        // Fonte Pixelada Reconstruída
+        const pixelFont = {
+            'S': [[0,1,1,1],[1,0,0,0],[0,1,1,0],[0,0,0,1],[1,1,1,0]],
+            'Q': [[0,1,1,0],[1,0,0,1],[1,0,0,1],[1,0,1,0],[0,1,1,1]],
+            'U': [[1,0,0,1],[1,0,0,1],[1,0,0,1],[1,0,0,1],[0,1,1,0]],
+            'A': [[0,1,1,0],[1,0,0,1],[1,1,1,1],[1,0,0,1],[1,0,0,1]],
+            'D': [[1,1,1,0],[1,0,0,1],[1,0,0,1],[1,0,1,0],[1,1,1,0]],
+            'R': [[1,1,1,0],[1,0,0,1],[1,1,1,0],[1,0,1,0],[1,0,0,1]],
+            'O': [[0,1,1,0],[1,0,0,1],[1,0,0,1],[1,0,0,1],[0,1,1,0]],
+            'Y': [[1,0,0,1],[1,0,0,1],[0,1,1,0],[0,1,0,0],[0,1,0,0]],
+            'L': [[1,0,0,0],[1,0,0,0],[1,0,0,0],[1,0,0,0],[1,1,1,1]],
+            'E': [[1,1,1,1],[1,0,0,0],[1,1,1,0],[1,0,0,0],[1,1,1,1]],
+            'J': [[0,0,1],[0,0,1],[0,0,1],[1,0,1],[0,1,1]],
+            'G': [[1,1,1],[1,0,0],[1,0,1],[1,0,1],[1,1,1]],
+            'P': [[1,1,1,0],[1,0,0,1],[1,1,1,0],[1,0,0,0],[1,0,0,0]],
+            'N': [[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],
+            'I': [[1],[1],[1],[1],[1]],
+            'T': [[1,1,1],[0,1,0],[0,1,0],[0,1,0],[0,1,0]],
+            '0': [[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
+            '1': [[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],
+            '2': [[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]],
+            '3': [[1,1,1],[0,0,1],[0,1,1],[0,0,1],[1,1,1]],
+            '4': [[1,0,1],[1,0,1],[1,1,1],[0,0,1],[0,0,1]],
+            '5': [[1,1,1],[1,0,0],[1,1,1],[0,0,1],[1,1,1]],
+            '6': [[1,1,1],[1,0,0],[1,1,1],[1,0,1],[1,1,1]],
+            '7': [[1,1,1],[0,0,1],[0,0,1],[0,0,1],[0,0,1]],
+            '8': [[1,1,1],[1,0,1],[1,1,1],[1,0,1],[1,1,1]],
+            '9': [[1,1,1],[1,0,1],[1,1,1],[0,0,1],[1,1,1]],
+            ' ': [[0,0,0]]
+        };
+
+        const joystick = { bx: 120, by: 0, sx: 120, sy: 0, active: false, tid: null, ix: 0, iy: 0 };
+        const shootBtn = { x: 0, y: 0, pressed: false, tid: null };
+        const playBtn = { x: 0, y: 0, w: 220, h: 80, pressed: false };
+        let camera = { x: 2000, y: 2000 };
+
+        function resize() {
+            dpr = window.devicePixelRatio || 1;
+            w = window.innerWidth;
+            h = window.innerHeight;
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            ctx.scale(dpr, dpr);
+            joystick.by = h - 130;
+            joystick.sy = joystick.by;
+            shootBtn.x = w - 100;
+            shootBtn.y = h - 120;
+            playBtn.x = (w - playBtn.w) / 2;
+            playBtn.y = h - 160;
+        }
+
+        function drawPixelRect(x, y, width, height, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(Math.floor(x), Math.floor(y), Math.floor(width), Math.floor(height));
+        }
+
+        function drawPixelText(text, x, y, size, color) {
+            ctx.fillStyle = color;
+            let curX = x;
+            String(text).toUpperCase().split('').forEach(char => {
+                const glyph = pixelFont[char] || pixelFont[' '];
+                glyph.forEach((row, rIdx) => {
+                    row.forEach((p, cIdx) => {
+                        if(p) ctx.fillRect(curX + cIdx * size, y + rIdx * size, size, size);
+                    });
+                });
+                curX += (glyph[0].length + 1) * size;
+            });
+        }
+
+        function getPixelTextWidth(text, size) {
+            let width = 0;
+            String(text).toUpperCase().split('').forEach(char => {
+                const glyph = pixelFont[char] || pixelFont[' '];
+                width += (glyph[0].length + 1) * size;
+            });
+            return width;
+        }
+
+        function drawPlayer(x, y, name, angle, moving, isMe, f) {
+            let walk = moving ? Math.sin(f * 0.2) * 8 : 0;
+            let bounce = moving ? Math.abs(Math.cos(f * 0.2)) * 4 : Math.sin(f * 0.05) * 2;
+            let py = y - bounce;
+
+            // Sombra
+            drawPixelRect(x - 20, y, 40, 6, 'rgba(0,0,0,0.2)');
+
+            // Arma
+            ctx.save();
+            ctx.translate(x, py - 22);
+            ctx.rotate(angle);
+            drawPixelRect(15, -4, 22, 8, '#222');
+            drawPixelRect(15, 0, 8, 10, '#333');
+            ctx.restore();
+
+            const bodyCol = isMe ? '#ff3131' : '#3177ff';
+            const darkCol = isMe ? '#8b0000' : '#002b8b';
+
+            drawPixelRect(x - 14, py - 12 + walk, 10, 12, '#333'); // Perna 1
+            drawPixelRect(x + 4, py - 12 - walk, 10, 12, '#333');  // Perna 2
+            drawPixelRect(x - 22, py - 50, 44, 40, darkCol); 
+            drawPixelRect(x - 22, py - 50, 44, 34, bodyCol); 
+
+            if (f % 160 > 5) {
+                drawPixelRect(x - 12, py - 36, 6, 6, '#000');
+                drawPixelRect(x + 6, py - 36, 6, 6, '#000');
+            }
+
+            const tw = getPixelTextWidth(name, 1.5);
+            drawPixelText(name, x - tw/2, py - 65, 1.5, "#fff");
+        }
+
+        // Multiplayer System
+        async function startNetwork() {
+            const initAuth = async () => {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            };
+            
+            await initAuth();
+
+            onAuthStateChanged(auth, (u) => {
+                if (u) {
+                    user = u;
+                    // Sincronizar dados periodicamente
+                    setInterval(() => {
+                        if (gameState === "PLAYING" && user) {
+                            const myRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', user.uid);
+                            setDoc(myRef, {
+                                ...myData,
+                                t: serverTimestamp()
+                            }, { merge: true });
+                        }
+                    }, 100);
+
+                    // Escutar outros jogadores
+                    const q = collection(db, 'artifacts', appId, 'public', 'data', 'players');
+                    onSnapshot(q, (snapshot) => {
+                        const players = {};
+                        snapshot.forEach(doc => {
+                            if (doc.id !== user.uid) {
+                                players[doc.id] = doc.data();
+                            }
+                        });
+                        otherPlayers = players;
+                    }, (error) => console.log("Firebase Error:", error));
+                }
+            });
+        }
+
+        function loop() {
+            frame++;
+            ctx.clearRect(0, 0, w, h);
+
+            if (gameState === "MENU") {
+                drawPixelRect(0, 0, w, h, '#0a0a0a');
+                const gy = h * 0.75;
+                drawPixelRect(0, gy, w, h-gy, '#151515');
+                
+                drawPlayer(w/2, gy - 10, myData.n, 0, false, true, frame);
+                
+                const off = playBtn.pressed ? 4 : 0;
+                drawPixelRect(playBtn.x + 8, playBtn.y + 8, playBtn.w, playBtn.h, '#000');
+                drawPixelRect(playBtn.x + off, playBtn.y + off, playBtn.w, playBtn.h, '#ffcc00');
+                const tw = getPixelTextWidth("JOGAR ONLINE", 3.5);
+                drawPixelText("JOGAR ONLINE", playBtn.x + off + (playBtn.w - tw)/2, playBtn.y + off + 28, 3.5, "#000");
+
+                const title = "SQUAD ROYALE";
+                const titW = getPixelTextWidth(title, 6);
+                drawPixelText(title, (w - titW)/2, 80, 6, "#fff");
+                
+                const statusTxt = user ? "SERVIDORES ONLINE" : "CONECTANDO...";
+                const stW = getPixelTextWidth(statusTxt, 1);
+                drawPixelText(statusTxt, (w - stW)/2, h - 40, 1, user ? "#0f0" : "#f00");
+
+            } else {
+                // Gameplay
+                if(joystick.active) {
+                    myData.x += joystick.ix * 4.8;
+                    myData.y += joystick.iy * 4.8;
+                    myData.a = Math.atan2(joystick.iy, joystick.ix);
+                    myData.m = true;
+                } else {
+                    myData.m = false;
+                }
+                myData.f = frame;
+
+                camera.x += (myData.x - w/2 - camera.x) * 0.1;
+                camera.y += (myData.y - h/2 - camera.y) * 0.1;
+
+                drawPixelRect(0, 0, w, h, '#111116');
+                ctx.save();
+                ctx.translate(-camera.x, -camera.y);
+                
+                // Arena Grid
+                for(let i=0; i<4000; i+=150) {
+                    for(let j=0; j<4000; j+=150) {
+                        drawPixelRect(i, j, 146, 146, '#1a1a22');
+                    }
+                }
+
+                // Desenhar Inimigos (Azuis)
+                Object.values(otherPlayers).forEach(p => {
+                    drawPlayer(p.x, p.y, p.n, p.a, p.m, false, p.f);
+                });
+
+                // Desenhar Eu (Vermelho)
+                drawPlayer(myData.x, myData.y, myData.n, myData.a, myData.m, true, frame);
+                ctx.restore();
+
+                // HUD Pixelada
+                drawPixelRect(joystick.bx-65, joystick.by-65, 130, 130, '#000');
+                drawPixelRect(joystick.bx-60, joystick.by-60, 120, 120, '#222');
+                drawPixelRect(joystick.sx-30, joystick.sy-30, 60, 60, '#ffcc00');
+
+                const sO = shootBtn.pressed ? 6 : 0;
+                drawPixelRect(shootBtn.x-55, shootBtn.y-55, 110, 110, '#000');
+                drawPixelRect(shootBtn.x-50+sO, shootBtn.y-50+sO, 100-sO*2, 100-sO*2, '#ff3131');
+                drawPixelText("TIRO", shootBtn.x-20, shootBtn.y-8, 2, "#fff");
+
+                drawPixelRect(w-60, 20, 45, 45, '#ff3131');
+                drawPixelText("X", w-45, 30, 3, "#fff");
+            }
+            requestAnimationFrame(loop);
+        }
+
+        canvas.addEventListener('touchstart', (e) => {
+            const t = e.changedTouches[0];
+            const x = t.clientX, y = t.clientY;
+            if(gameState === "MENU") {
+                if(x > playBtn.x && x < playBtn.x+playBtn.w && y > playBtn.y && y < playBtn.y+playBtn.h) {
+                    playBtn.pressed = true;
+                    setTimeout(() => { if(user) gameState = "PLAYING"; playBtn.pressed = false; }, 150);
+                }
+            } else {
+                if(Math.hypot(x-joystick.bx, y-joystick.by) < 100) { joystick.active = true; joystick.tid = t.identifier; }
+                if(Math.hypot(x-shootBtn.x, y-shootBtn.y) < 80) { shootBtn.pressed = true; shootBtn.tid = t.identifier; }
+                if(x > w-80 && y < 80) gameState = "MENU";
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if(!joystick.active) return;
+            const t = Array.from(e.changedTouches).find(tt => tt.identifier === joystick.tid);
+            if(t) {
+                let dx = t.clientX - joystick.bx, dy = t.clientY - joystick.by;
+                const dist = Math.hypot(dx, dy);
+                if(dist > 55) { dx *= 55/dist; dy *= 55/dist; }
+                joystick.sx = joystick.bx + dx; joystick.sy = joystick.by + dy;
+                joystick.ix = dx/55; joystick.iy = dy/55;
+            }
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            for(let t of e.changedTouches) {
+                if(t.identifier === joystick.tid) { 
+                    joystick.active = false; joystick.sx = joystick.bx; joystick.sy = joystick.by; 
+                    joystick.ix = 0; joystick.iy = 0; 
+                }
+                if(t.identifier === shootBtn.tid) shootBtn.pressed = false;
+            }
+        });
+
+        window.addEventListener('resize', resize);
+        resize();
+        loop();
+        startNetwork();
+    </script>
 </body>
 </html>
+
+```
