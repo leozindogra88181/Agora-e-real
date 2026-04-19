@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SQUAD ROYALE - Oficial Multiplayer</title>
+    <title>SQUAD ROYALE - Oficial</title>
     <style>
         :root { --black: #000000; --yellow: #ffcc00; --red: #ff3131; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -40,8 +40,8 @@
         <button id="saveNameBtn">SALVAR</button>
     </div>
 
-    <!-- BIBLIOTECA PEERJS PARA MULTIPLAYER DIRETO SEM FIREBASE -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Biblioteca segura carregada via CDN confiável -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -87,8 +87,8 @@
         let blinkTimer = 0;
         let nextBlink = 100;
 
-        // --- VARIÁVEIS DO MULTIPLAYER ---
-        const ROOM_ID = "squad-royale-leozin-global-1"; // ID da sala fixa
+        // --- VARIÁVEIS SEGURAS DO MULTIPLAYER ---
+        const ROOM_ID = "squad-royale-web-123"; // Sala única para vocês se encontrarem
         let peer;
         let isHost = false;
         let hostConnection;
@@ -163,7 +163,7 @@
         function drawPixelText(text, x, y, size, color) {
             ctx.fillStyle = color;
             let currentX = x;
-            text.split('').forEach(char => {
+            String(text || "").split('').forEach(char => {
                 const upperChar = char.toUpperCase();
                 if(char === ' ') { currentX += size * 2; return; }
                 const glyph = pixelFont[upperChar] || pixelFont['A'];
@@ -178,7 +178,7 @@
 
         function getPixelTextWidth(text, size) {
             let width = 0;
-            text.split('').forEach(char => {
+            String(text || "").split('').forEach(char => {
                 const upperChar = char.toUpperCase();
                 if(char === ' ') width += size * 2;
                 else {
@@ -189,7 +189,6 @@
             return width;
         }
 
-        // DESENHA VOCÊ (VERMELHO)
         function drawPlayer(x, y, scale = 1, animated = false) {
             const s = scale;
             blinkTimer++;
@@ -261,7 +260,6 @@
             }
         }
 
-        // DESENHA INIMIGOS (AZUL)
         function drawOtherPlayer(x, y, name, angle, scale, animated, hasWep) {
             const s = scale;
             let footOffset = 0;
@@ -287,11 +285,8 @@
                 drawPixelRect(0, -4*s, 22*s, 8*s, '#333'); ctx.restore();
             }
 
-            // Pernas Azuis Escuras
             drawPixelRect(x - (14*s), py - (12*s) + footOffset, 10*s, 12*s, '#000044'); 
             drawPixelRect(x + (4*s), py - (12*s) - footOffset, 10*s, 12*s, '#000044');  
-
-            // Corpo Azul
             drawPixelRect(x - (22*s), py - (50*s), 44*s, 40*s, '#00008b'); 
             drawPixelRect(x - (22*s), py - (50*s), 44*s, 34*s, '#3177ff'); 
 
@@ -372,10 +367,12 @@
                     drawPixelRect(i, j, 95, 95, '#24242c');
                 }
                 
-                // DESENHAR OUTROS JOGADORES DO MULTIPLAYER
-                Object.values(otherPlayers).forEach(p => {
-                    if(p && p.n !== playerName) drawOtherPlayer(p.x, p.y, p.n, p.a, 0.9, p.m, p.w);
-                });
+                // DESENHAR INIMIGOS SEGURAMENTE
+                try {
+                    Object.values(otherPlayers).forEach(p => {
+                        if(p && p.n !== playerName) drawOtherPlayer(p.x, p.y, p.n, p.a, 0.9, p.m, p.w);
+                    });
+                } catch(e) {}
 
                 bullets.forEach((b, idx) => {
                     drawPixelRect(b.x-2, b.y-2, 6, 6, '#ff0');
@@ -405,10 +402,12 @@
             requestAnimationFrame(render);
         }
 
-        // Handlers Touch
+        // --- CORREÇÃO DO BUG DE TOQUE (IOS/SAFARI) ---
         function handleTouch(e) {
             e.preventDefault();
-            for(let t of e.changedTouches) {
+            // A forma segura de ler os toques para o iPhone não travar:
+            for(let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
                 const x = t.clientX, y = t.clientY;
                 if(gameState === "MENU") {
                     if(x >= profileArea.x && x <= profileArea.x+profileArea.w && y >= profileArea.y && y <= profileArea.y+profileArea.h) {
@@ -432,18 +431,14 @@
             }
         }
 
-        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('touchstart', handleTouch, {passive: false});
+        
         canvas.addEventListener('touchmove', e => {
-            for(let t of e.changedTouches) {
+            e.preventDefault();
+            for(let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
                 if(joystick.active && t.identifier === joystick.touchId) {
                     let dx = t.clientX - joystick.baseX, dy = t.clientY - joystick.baseY;
                     let dist = Math.hypot(dx, dy);
                     if(dist > 65) { dx *= 65/dist; dy *= 65/dist; }
-                    joystick.stickX = joystick.baseX + dx; joystick.stickY = joystick.baseY + dy;
-                    joystick.inputX = dx/65; joystick.inputY = dy/65;
-                }
-            }
-        });
-        canvas.addEventListener('touchend', e => {
-            for(let t of e.changedTouches) {
-                if(t.identifier === joystic
+                    joystick.stickX = joystick.baseX + dx; joystick.stickY = joystick.baseY + 
