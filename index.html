@@ -29,6 +29,8 @@
         }
         #nameInputOverlay button { background: var(--yellow); border: none; padding: 10px 30px; cursor: pointer; font-weight: bold; }
     </style>
+    <!-- MÁGICA DO MULTIPLAYER SEM FIREBASE -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
@@ -39,9 +41,6 @@
         <br>
         <button id="saveNameBtn">SALVAR</button>
     </div>
-
-    <!-- Biblioteca segura carregada via CDN confiável -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -87,13 +86,14 @@
         let blinkTimer = 0;
         let nextBlink = 100;
 
-        // --- VARIÁVEIS SEGURAS DO MULTIPLAYER ---
-        const ROOM_ID = "squad-royale-web-123"; // Sala única para vocês se encontrarem
-        let peer;
+        // --- VARIÁVEIS DE REDE ---
+        const ROOM_ID = "squad-royale-github-room";
+        let peer = null;
         let isHost = false;
-        let hostConnection;
-        let clientConnections = [];
-        let otherPlayers = {};
+        let myId = Math.random().toString(36).substr(2, 9);
+        let connections = [];
+        let hostConn = null;
+        let networkPlayers = {};
 
         const pixelFont = {
             'S': [[0,1,1,1],[1,0,0,0],[0,1,1,0],[0,0,0,1],[1,1,1,0]],
@@ -163,7 +163,7 @@
         function drawPixelText(text, x, y, size, color) {
             ctx.fillStyle = color;
             let currentX = x;
-            String(text || "").split('').forEach(char => {
+            text.split('').forEach(char => {
                 const upperChar = char.toUpperCase();
                 if(char === ' ') { currentX += size * 2; return; }
                 const glyph = pixelFont[upperChar] || pixelFont['A'];
@@ -178,7 +178,7 @@
 
         function getPixelTextWidth(text, size) {
             let width = 0;
-            String(text || "").split('').forEach(char => {
+            text.split('').forEach(char => {
                 const upperChar = char.toUpperCase();
                 if(char === ' ') width += size * 2;
                 else {
@@ -189,6 +189,7 @@
             return width;
         }
 
+        // DESENHAR VOCÊ
         function drawPlayer(x, y, scale = 1, animated = false) {
             const s = scale;
             blinkTimer++;
@@ -254,22 +255,24 @@
             }
             if(weaponRecoil > 0) weaponRecoil *= 0.8;
             
-            if (gameState === "TRAINING") {
-                const nW = getPixelTextWidth(playerName, 1.5);
-                drawPixelText(playerName, x - (nW / 2), py - 70*s, 1.5, "#fff");
+            // O nome aparece em cima da sua cabeça
+            if(gameState === "TRAINING") {
+                const tw = getPixelTextWidth(playerName, 1.5);
+                drawPixelText(playerName, x - tw/2, py - 60*s, 1.5, "#fff");
             }
         }
 
-        function drawOtherPlayer(x, y, name, angle, scale, animated, hasWep) {
+        // DESENHAR OUTROS JOGADORES (INIMIGOS AZUIS)
+        function drawOtherPlayer(x, y, name, angle, scale, animated, hasWep, f) {
             const s = scale;
             let footOffset = 0;
             let bodyBounce = 0;
             
             if (animated) {
-                footOffset = Math.sin(frame * 0.15) * 10 * s; 
-                bodyBounce = Math.abs(Math.cos(frame * 0.15)) * 4 * s;
+                footOffset = Math.sin(f * 0.15) * 10 * s; 
+                bodyBounce = Math.abs(Math.cos(f * 0.15)) * 4 * s;
             } else {
-                bodyBounce = Math.sin(frame * 0.05) * 4 * s;
+                bodyBounce = Math.sin(f * 0.05) * 4 * s;
             }
 
             const py = y - bodyBounce;
@@ -301,8 +304,8 @@
                 drawPixelRect(0, -4*s, 22*s, 8*s, '#333'); ctx.restore();
             }
 
-            const tW = getPixelTextWidth(name, 1.5);
-            drawPixelText(name, x - (tW / 2), py - 70*s, 1.5, "#fff");
+            const tw = getPixelTextWidth(name, 1.5);
+            drawPixelText(name, x - tw/2, py - 60*s, 1.5, "#fff");
         }
 
         function drawButton(btn, text, color, shadow, size = 5) {
@@ -323,6 +326,7 @@
                 ctx.fillStyle = '#1a1a1a';
                 ctx.fillRect(0, 0, w, h);
                 
+                // Chão
                 const groundY = h - h * 0.25;
                 drawPixelRect(0, groundY, w, h*0.25, '#333');
                 floorOffset -= 2; if (floorOffset <= -100) floorOffset = 0;
@@ -330,6 +334,7 @@
 
                 drawPlayer(w/2, groundY - 10, 1.3, false);
                 
+                // Perfil
                 drawPixelRect(profileArea.x, profileArea.y, profileArea.w, profileArea.h, '#000');
                 drawPixelRect(profileArea.x+4, profileArea.y+4, profileArea.w-8, profileArea.h-8, '#333');
                 drawPixelRect(profileArea.x+12, profileArea.y+12, 50, 50, '#ff3131');
@@ -343,6 +348,7 @@
                 drawPixelText("SQUAD ROYALE", (w - tW) / 2, 60, 6, "#fff");
 
             } else if (gameState === "TRAINING") {
+                // Update Logica
                 let ix = joystick.inputX, iy = joystick.inputY;
                 let m = Math.hypot(ix, iy);
                 if(m > 0.1) {
@@ -354,40 +360,42 @@
                 let s = Math.hypot(playerVel.x, playerVel.y);
                 if(s > MOVE_SPEED) { playerVel.x *= MOVE_SPEED/s; playerVel.y *= MOVE_SPEED/s; }
                 playerPos.x += playerVel.x; playerPos.y += playerVel.y;
-                
                 if(!weaponLoot.collected && Math.hypot(playerPos.x-weaponLoot.x, playerPos.y-weaponLoot.y) < 45) {
                     weaponLoot.collected = true; hasWeapon = true;
                 }
                 camera.x += (playerPos.x - w/2 - camera.x) * 0.1;
                 camera.y += (playerPos.y - h/2 - camera.y) * 0.1;
 
+                // Desenhar Mundo
                 ctx.save();
                 ctx.translate(-camera.x, -camera.y);
                 for(let i=900; i<1300; i+=100) for(let j=900; j<1300; j+=100) {
                     drawPixelRect(i, j, 95, 95, '#24242c');
                 }
-                
-                // DESENHAR INIMIGOS SEGURAMENTE
-                try {
-                    Object.values(otherPlayers).forEach(p => {
-                        if(p && p.n !== playerName) drawOtherPlayer(p.x, p.y, p.n, p.a, 0.9, p.m, p.w);
-                    });
-                } catch(e) {}
+
+                // -> DESENHAR OUTROS JOGADORES DA REDE <-
+                for(let id in networkPlayers) {
+                    let p = networkPlayers[id];
+                    if (p.id !== myId && p.id !== (isHost ? 'HOST' : '')) {
+                        drawOtherPlayer(p.x, p.y, p.n, p.a, 0.9, p.m, p.w, p.f);
+                    }
+                }
 
                 bullets.forEach((b, idx) => {
                     drawPixelRect(b.x-2, b.y-2, 6, 6, '#ff0');
                     b.x += b.vx; b.y += b.vy; b.life--;
                     if(b.life <= 0) bullets.splice(idx, 1);
                 });
-                
                 if(!weaponLoot.collected) {
                     ctx.save(); ctx.translate(weaponLoot.x, weaponLoot.y); ctx.rotate(frame*0.05);
                     drawPixelRect(-15, -5, 30, 10, '#555'); ctx.restore();
                 }
                 
+                // Eu
                 drawPlayer(playerPos.x, playerPos.y, 0.9, true);
                 ctx.restore();
 
+                // UI Jogo
                 drawPixelRect(joystick.baseX-65, joystick.baseY-65, 130, 130, '#000');
                 drawPixelRect(joystick.baseX-60, joystick.baseY-60, 120, 120, 'rgba(40,40,30,0.8)');
                 drawPixelRect(joystick.stickX-32, joystick.stickY-32, 64, 64, '#ffcc00');
@@ -402,11 +410,10 @@
             requestAnimationFrame(render);
         }
 
-        // --- CORREÇÃO DO BUG DE TOQUE (IOS/SAFARI) ---
+        // Handlers Touch Unificados (Agora seguro para iOS)
         function handleTouch(e) {
             e.preventDefault();
-            // A forma segura de ler os toques para o iPhone não travar:
-            for(let i = 0; i < e.changedTouches.length; i++) {
+            for(let i=0; i<e.changedTouches.length; i++) {
                 const t = e.changedTouches[i];
                 const x = t.clientX, y = t.clientY;
                 if(gameState === "MENU") {
@@ -414,8 +421,7 @@
                         overlay.style.display = 'block'; return;
                     }
                     if(x >= btnPlay.x && x <= btnPlay.x+btnPlay.w && y >= btnPlay.y) {
-                        btnPlay.pressed = true; 
-                        setTimeout(()=> { gameState="TRAINING"; btnPlay.pressed=false; }, 100);
+                        btnPlay.pressed = true; setTimeout(()=> { gameState="TRAINING"; btnPlay.pressed=false; }, 100);
                     }
                     if(x >= btnTrain.x && x <= btnTrain.x+btnTrain.w && y >= btnTrain.y && y <= btnTrain.y+btnTrain.h) {
                         btnTrain.pressed = true; hasWeapon=false; weaponLoot.collected=false; 
@@ -431,14 +437,13 @@
             }
         }
 
+        // {passive: false} garante que o Safari do iPhone não trave
         canvas.addEventListener('touchstart', handleTouch, {passive: false});
         
         canvas.addEventListener('touchmove', e => {
             e.preventDefault();
-            for(let i = 0; i < e.changedTouches.length; i++) {
+            for(let i=0; i<e.changedTouches.length; i++) {
                 const t = e.changedTouches[i];
                 if(joystick.active && t.identifier === joystick.touchId) {
                     let dx = t.clientX - joystick.baseX, dy = t.clientY - joystick.baseY;
-                    let dist = Math.hypot(dx, dy);
-                    if(dist > 65) { dx *= 65/dist; dy *= 65/dist; }
-                    joystick.stickX = joystick.baseX + dx; joystick.stickY = joystick.baseY + 
+        
