@@ -1,2 +1,474 @@
+```html
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MamoBall - Online Multiplayer</title>
+    <!-- Fonte e Biblioteca de Multiplayer (PeerJS) -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; background-color: #000;
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden; touch-action: none;
+        }
 
+        #game-container {
+            position: relative; width: 100vw; height: 100vh;
+            background-color: #000; overflow: hidden;
+        }
+
+        canvas { display: block; }
+
+        /* MENU MULTIPLAYER (LOBBY) */
+        #lobby {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; text-align: center;
+        }
         
+        .title { color: #42a5f5; font-size: 24px; margin-bottom: 40px; text-shadow: 2px 2px 0 #ef5350; }
+        
+        .btn {
+            background: #111; border: 3px solid #fff; color: #fff;
+            padding: 15px 20px; font-family: 'Press Start 2P', cursive;
+            font-size: 14px; cursor: pointer; margin: 10px; width: 280px;
+            text-transform: uppercase;
+        }
+        .btn:active { background: #333; transform: scale(0.95); }
+        .btn-blue { border-color: #42a5f5; color: #42a5f5; }
+        .btn-red { border-color: #ef5350; color: #ef5350; }
+
+        #room-input {
+            padding: 15px; font-family: 'Press Start 2P', cursive; font-size: 16px;
+            width: 200px; text-align: center; text-transform: uppercase;
+            background: #111; color: #fff; border: 3px solid #666; margin-bottom: 10px;
+        }
+
+        #status-msg { margin-top: 20px; font-size: 10px; color: #aaa; line-height: 1.5; }
+        
+        .panel { display: none; flex-direction: column; align-items: center; }
+        .active-panel { display: flex; }
+
+        /* UI DO JOGO (Placar, Joystick, Botão) */
+        #ui {
+            position: absolute; top: 20px; width: 100%; display: none;
+            flex-direction: column; align-items: center; pointer-events: none; z-index: 10;
+        }
+        .score-board {
+            background: rgba(0, 0, 0, 0.7); padding: 15px 30px;
+            border: 2px solid rgba(255, 255, 255, 0.15); display: flex; gap: 20px;
+            color: #ffffff; font-size: 16px;
+        }
+
+        #joystick-container {
+            position: absolute; bottom: 50px; left: 50px; width: 130px; height: 130px;
+            background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%; z-index: 20; display: none;
+        }
+        #joystick-knob {
+            width: 60px; height: 60px; background: rgba(255, 255, 255, 0.12);
+            border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 50%;
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none;
+        }
+
+        #kick-btn {
+            position: absolute; bottom: 60px; right: 60px; width: 100px; height: 100px;
+            background: rgba(255, 255, 255, 0.05); border: 3px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.3); border-radius: 50%; display: none;
+            justify-content: center; align-items: center; z-index: 20; cursor: pointer;
+            font-size: 32px; user-select: none;
+        }
+        #kick-btn:active { background: rgba(255, 255, 255, 0.2); color: #fff; border-color: #fff; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- MENU MULTIPLAYER -->
+    <div id="lobby">
+        <div class="title">MAMOBALL ONLINE</div>
+        
+        <!-- Painel Inicial -->
+        <div id="panel-main" class="panel active-panel">
+            <button class="btn btn-blue" onclick="showPanel('panel-host')">CRIAR SALA (AZUL)</button>
+            <button class="btn btn-red" onclick="showPanel('panel-join')">ENTRAR (VERMELHO)</button>
+            <div id="status-msg"></div>
+        </div>
+
+        <!-- Painel do Criador da Sala (Host) -->
+        <div id="panel-host" class="panel">
+            <p>Seu código é:</p>
+            <h1 id="room-code-display" style="color: #42a5f5; font-size: 40px; letter-spacing: 5px;">...</h1>
+            <p style="font-size: 10px; margin-top: 20px;">Mande para seu amigo e aguarde.</p>
+            <button class="btn" style="margin-top: 30px;" onclick="showPanel('panel-main')">VOLTAR</button>
+        </div>
+
+        <!-- Painel de quem vai Entrar (Client) -->
+        <div id="panel-join" class="panel">
+            <p>Digite o código:</p>
+            <input type="text" id="room-input" maxlength="4" placeholder="EX: A1B2" autocomplete="off">
+            <button class="btn btn-red" onclick="joinRoom()">CONECTAR</button>
+            <button class="btn" style="margin-top: 20px;" onclick="showPanel('panel-main')">VOLTAR</button>
+        </div>
+    </div>
+
+    <!-- UI DO JOGO -->
+    <div id="ui">
+        <div class="score-board">
+            <span id="score-left" style="color: #42a5f5;">00</span>
+            <span style="opacity: 0.3;">:</span>
+            <span id="score-right" style="color: #ef5350;">00</span>
+        </div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="joystick-container">
+        <div id="joystick-knob"></div>
+    </div>
+
+    <div id="kick-btn">X</div>
+</div>
+
+<script>
+    // --- LÓGICA DE MULTIPLAYER (PEERJS) ---
+    let peer = null;
+    let conn = null;
+    let isHost = false;
+    let gameStarted = false;
+    let myRoomId = "";
+
+    const statusMsg = document.getElementById('status-msg');
+    
+    function showPanel(panelId) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active-panel'));
+        document.getElementById(panelId).classList.add('active-panel');
+        if(panelId === 'panel-host') createRoom();
+    }
+
+    function generateCode() {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let code = "";
+        for(let i=0; i<4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+        return code;
+    }
+
+    // Jogador 1: Cria a sala
+    function createRoom() {
+        if(peer) peer.destroy();
+        myRoomId = "mamoball-" + generateCode();
+        document.getElementById('room-code-display').innerText = myRoomId.replace('mamoball-', '');
+        
+        peer = new Peer(myRoomId);
+        
+        peer.on('open', id => {
+            console.log('Sala criada: ' + id);
+            isHost = true;
+        });
+
+        peer.on('connection', connection => {
+            conn = connection;
+            setupConnection();
+        });
+
+        peer.on('error', err => {
+            alert("Erro de conexão. Tente criar novamente.");
+            showPanel('panel-main');
+        });
+    }
+
+    // Jogador 2: Entra na sala
+    function joinRoom() {
+        const inputCode = document.getElementById('room-input').value.toUpperCase().trim();
+        if(inputCode.length < 1) return;
+
+        document.getElementById('status-msg').innerText = "Conectando...";
+        
+        if(peer) peer.destroy();
+        peer = new Peer(); // Cria peer com ID aleatório pro cliente
+
+        peer.on('open', id => {
+            const hostId = "mamoball-" + inputCode;
+            conn = peer.connect(hostId, { reliable: true });
+            
+            conn.on('open', () => {
+                isHost = false;
+                setupConnection();
+            });
+
+            conn.on('error', () => {
+                document.getElementById('status-msg').innerText = "Erro. Verifique o código.";
+            });
+        });
+
+        peer.on('error', err => {
+             document.getElementById('status-msg').innerText = "Erro ao conectar servidor. Tente de novo.";
+        });
+    }
+
+    function setupConnection() {
+        // Quando a conexão é estabelecida
+        document.getElementById('lobby').style.display = 'none';
+        document.getElementById('ui').style.display = 'flex';
+        document.getElementById('joystick-container').style.display = 'flex';
+        document.getElementById('kick-btn').style.display = 'flex';
+        
+        gameStarted = true;
+        
+        conn.on('data', data => {
+            if(isHost) {
+                // Host recebe inputs do Cliente
+                remoteInputs = data;
+            } else {
+                // Cliente recebe estado do jogo do Host e desenha
+                gameState = data;
+                applyGameState();
+            }
+        });
+
+        conn.on('close', () => {
+            alert("O outro jogador desconectou.");
+            location.reload();
+        });
+
+        if(isHost) gameLoop(); // Só o Host roda a física pesada!
+        else clientRenderLoop(); // O cliente só desenha
+    }
+
+    // --- LÓGICA DO JOGO (A MESMA DE ANTES!) ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreLeftEl = document.getElementById('score-left');
+    const scoreRightEl = document.getElementById('score-right');
+    const joystickKnob = document.getElementById('joystick-knob');
+    const joystickContainer = document.getElementById('joystick-container');
+    const kickBtn = document.getElementById('kick-btn');
+
+    const WORLD_WIDTH = 2400;
+    const WORLD_HEIGHT = 1400;
+    const GOAL_SIZE = 280;
+    const CAMERA_ZOOM = 0.65;
+
+    const FRICTION = 0.98;
+    const BALL_FRICTION = 0.993;
+    const PLAYER_ACCEL = 0.52;
+    const MAX_SPEED = 6.5;
+    const KICK_POWER = 22;
+    const DRIBBLING_THRESHOLD = 65;
+
+    let camera = { x: 0, y: 0, width: 0, height: 0 };
+    let score = { left: 0, right: 0 };
+    
+    // Inputs Locais
+    let localInput = { x: 0, y: 0, kick: false, wasKick: false, rot: 0 };
+    // Inputs Recebidos (Só usado pelo Host)
+    let remoteInputs = { x: 0, y: 0, kick: false, rot: Math.PI };
+    // Estado do jogo recebido (Só usado pelo Client)
+    let gameState = null;
+
+    let isTouchingJoystick = false;
+
+    function updateCanvasSize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        camera.width = canvas.width / CAMERA_ZOOM;
+        camera.height = canvas.height / CAMERA_ZOOM;
+    }
+    window.addEventListener('resize', updateCanvasSize);
+    updateCanvasSize();
+
+    // Controles Touch / Joystick
+    const updateJoystick = (clientX, clientY) => {
+        const rect = joystickContainer.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        let dx = clientX - centerX;
+        let dy = clientY - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxR = rect.width / 2;
+        
+        if (dist > maxR) { dx = (dx / dist) * maxR; dy = (dy / dist) * maxR; }
+
+        if (dist < 8) {
+            localInput.x = 0; localInput.y = 0;
+            joystickKnob.style.transform = `translate(-50%, -50%)`;
+        } else {
+            localInput.x = dx / maxR;
+            localInput.y = dy / maxR;
+            joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            localInput.rot = Math.atan2(dy, dx);
+        }
+    };
+
+    joystickContainer.addEventListener('touchstart', (e) => {
+        isTouchingJoystick = true; updateJoystick(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+        if (isTouchingJoystick) { updateJoystick(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }
+    }, { passive: false });
+
+    const stopJoystick = () => {
+        isTouchingJoystick = false; localInput.x = 0; localInput.y = 0;
+        joystickKnob.style.transform = `translate(-50%, -50%)`;
+    };
+    window.addEventListener('touchend', stopJoystick);
+
+    kickBtn.addEventListener('touchstart', (e) => { localInput.kick = true; e.preventDefault(); });
+    kickBtn.addEventListener('touchend', (e) => { localInput.kick = false; e.preventDefault(); });
+
+    // Enviar dados locais para o outro jogador constantemente
+    setInterval(() => {
+        if(!gameStarted || !conn || !conn.open) return;
+        if(isHost) {
+            // Host envia a física do mundo para o client
+            conn.send({
+                p1x: player1.x, p1y: player1.y, p1r: localInput.rot, p1k: localInput.kick,
+                p2x: player2.x, p2y: player2.y, p2r: remoteInputs.rot, p2k: remoteInputs.kick,
+                bx: ball.x, by: ball.y, sl: score.left, sr: score.right
+            });
+        } else {
+            // Client envia apenas o controle do joystick para o host
+            conn.send({ x: localInput.x, y: localInput.y, kick: localInput.kick, rot: localInput.rot });
+        }
+    }, 1000 / 60); // 60 vezes por segundo
+
+    class Entity {
+        constructor(x, y, radius, color, isBall = false) {
+            this.x = x; this.y = y; this.radius = radius; this.color = color;
+            this.vx = 0; this.vy = 0; this.isBall = isBall;
+        }
+        draw(kickingNow = false, rotation = 0) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            
+            if (!this.isBall && kickingNow) {
+                ctx.beginPath(); ctx.arc(0, 0, this.radius + 10, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2; ctx.stroke();
+            }
+
+            ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color; ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 3; ctx.stroke();
+            
+            if (!this.isBall) {
+                ctx.rotate(rotation);
+                ctx.beginPath(); ctx.moveTo(this.radius - 5, -5);
+                ctx.lineTo(this.radius + 5, 0); ctx.lineTo(this.radius - 5, 5);
+                ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
+            }
+            ctx.restore();
+        }
+        update() {
+            this.x += this.vx; this.y += this.vy;
+            this.vx *= this.isBall ? BALL_FRICTION : FRICTION; this.vy *= this.isBall ? BALL_FRICTION : FRICTION;
+
+            const halfGoal = GOAL_SIZE / 2; const midH = WORLD_HEIGHT / 2;
+            if (this.x - this.radius < 0) {
+                if (this.y > midH - halfGoal && this.y < midH + halfGoal) { if (this.isBall) goalScored('right'); } 
+                else { this.x = this.radius; this.vx *= -0.7; }
+            }
+            if (this.x + this.radius > WORLD_WIDTH) {
+                if (this.y > midH - halfGoal && this.y < midH + halfGoal) { if (this.isBall) goalScored('left'); } 
+                else { this.x = WORLD_WIDTH - this.radius; this.vx *= -0.7; }
+            }
+            if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -0.7; }
+            if (this.y + this.radius > WORLD_HEIGHT) { this.y = WORLD_HEIGHT - this.radius; this.vy *= -0.7; }
+        }
+    }
+
+    const player1 = new Entity(400, WORLD_HEIGHT / 2, 34, '#42a5f5'); // AZUL (Host)
+    const player2 = new Entity(WORLD_WIDTH - 400, WORLD_HEIGHT / 2, 34, '#ef5350'); // VERMELHO (Client)
+    const ball = new Entity(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 18, '#ffffff', true);
+
+    function applyGameState() {
+        if(!gameState) return;
+        player1.x = gameState.p1x; player1.y = gameState.p1y;
+        player2.x = gameState.p2x; player2.y = gameState.p2y;
+        ball.x = gameState.bx; ball.y = gameState.by;
+        if(score.left !== gameState.sl || score.right !== gameState.sr) {
+            score.left = gameState.sl; score.right = gameState.sr;
+            scoreLeftEl.innerText = score.left.toString().padStart(2, '0');
+            scoreRightEl.innerText = score.right.toString().padStart(2, '0');
+        }
+    }
+
+    // FÍSICA DO DRIBLE - Só o host roda isso
+    function handleEntityControl(ent, inputData, wasKickingState) {
+        const dx = ball.x - ent.x; const dy = ball.y - ent.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        let pressing = inputData.kick;
+        let rot = inputData.rot;
+
+        if (pressing && dist < DRIBBLING_THRESHOLD) {
+            const targetX = ent.x + Math.cos(rot) * (ent.radius + ball.radius + 2);
+            const targetY = ent.y + Math.sin(rot) * (ent.radius + ball.radius + 2);
+            ball.x += (targetX - ball.x) * 0.45; ball.y += (targetY - ball.y) * 0.45;
+            ball.vx = ent.vx; ball.vy = ent.vy;
+        } else if (wasKickingState && !pressing && dist < DRIBBLING_THRESHOLD + 20) {
+            ball.vx = Math.cos(rot) * KICK_POWER; ball.vy = Math.sin(rot) * KICK_POWER;
+        } else if (dist < ent.radius + ball.radius) {
+            const angle = Math.atan2(dy, dx);
+            const overlap = (ent.radius + ball.radius) - dist;
+            ball.x += Math.cos(angle) * overlap; ball.y += Math.sin(angle) * overlap;
+            ball.vx += Math.cos(angle) * 1.5; ball.vy += Math.sin(angle) * 1.5;
+        }
+    }
+
+    function goalScored(side) {
+        if(!isHost) return; // Só o host conta gol
+        score[side]++;
+        scoreLeftEl.innerText = score.left.toString().padStart(2, '0');
+        scoreRightEl.innerText = score.right.toString().padStart(2, '0');
+        resetPositions();
+    }
+
+    function resetPositions() {
+        player1.x = 400; player1.y = WORLD_HEIGHT / 2; player1.vx = player1.vy = 0;
+        player2.x = WORLD_WIDTH - 400; player2.y = WORLD_HEIGHT / 2; player2.vx = player2.vy = 0;
+        ball.x = WORLD_WIDTH / 2; ball.y = WORLD_HEIGHT / 2; ball.vx = ball.vy = 0;
+    }
+
+    function drawField() {
+        ctx.fillStyle = '#1b5e20'; ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        ctx.fillStyle = '#18561d'; for(let i=0; i<WORLD_WIDTH; i+=200) { if((i/200)%2 === 0) ctx.fillRect(i, 0, 100, WORLD_HEIGHT); }
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 10; ctx.strokeRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        ctx.beginPath(); ctx.moveTo(WORLD_WIDTH/2, 0); ctx.lineTo(WORLD_WIDTH/2, WORLD_HEIGHT); ctx.stroke();
+        ctx.beginPath(); ctx.arc(WORLD_WIDTH/2, WORLD_HEIGHT/2, 160, 0, Math.PI*2); ctx.stroke();
+        const midH = WORLD_HEIGHT / 2; const halfGoal = GOAL_SIZE / 2;
+        ctx.strokeRect(0, midH - halfGoal, 80, GOAL_SIZE); ctx.strokeRect(WORLD_WIDTH - 80, midH - halfGoal, 80, GOAL_SIZE);
+    }
+
+    function renderCommon(me) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let targetCamX = me.x - camera.width / 2; let targetCamY = me.y - camera.height / 2;
+        targetCamX = Math.max(0, Math.min(targetCamX, WORLD_WIDTH - camera.width));
+        targetCamY = Math.max(0, Math.min(targetCamY, WORLD_HEIGHT - camera.height));
+        camera.x += (targetCamX - camera.x) * 0.08; camera.y += (targetCamY - camera.y) * 0.08;
+
+        ctx.scale(CAMERA_ZOOM, CAMERA_ZOOM); ctx.translate(-camera.x, -camera.y);
+        drawField();
+    }
+
+    let p1WasKicking = false;
+    let p2WasKicking = false;
+
+    // LOOP DO HOST (Cálcula Física Real)
+    function gameLoop() {
+        renderCommon(player1);
+
+        // Movimento P1 (Local)
+        player1.vx += localInput.x * PLAYER_ACCEL; player1.vy += localInput.y * PLAYER_ACCEL;
+        const p1Speed = Math.sqrt(player1.vx**2 + player1.vy**2);
+        if (p1Speed > MAX_SPEED) { player1.vx = (player1.vx/p1Speed)*MAX_SPEED; player1.vy = (player1.vy/p1Speed)*MAX_SPEED; }
+
+        // Movimento P2 (Recebido do remoto)
+        player2.vx += remoteInputs.x * PLAYER_ACCEL; player2.vy += remoteInputs.y * PLAYER_ACCEL;
+        const p2Speed = Math.sqrt(player2.vx**2 + player2.vy**2);
