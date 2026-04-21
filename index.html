@@ -4,13 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MamoBall Online</title>
+    <title>MamoBall Online - Ritmo Perfeito</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         * { 
             box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent; /* Remove o brilho chato do iOS ao clicar */
+            -webkit-tap-highlight-color: transparent; 
+            user-select: none;
         }
         
         body, html {
@@ -21,13 +22,13 @@
             overflow: hidden;
         }
 
-        /* TELA DE MENU - AGORA COM PRIORIDADE MÁXIMA */
+        /* MENU INICIAL SEGURO */
         #lobby-screen {
-            position: fixed; /* Fixado para garantir que cubra tudo */
+            position: fixed;
             top: 0; left: 0; 
             width: 100vw; height: 100vh;
             background: #0a0a0a;
-            z-index: 9999; /* Camada mais alta de todas */
+            z-index: 9999;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -40,10 +41,10 @@
             font-size: 20px; 
             margin-bottom: 40px; 
             text-shadow: 2px 2px 0 #ef5350;
-            pointer-events: none;
+            text-align: center;
+            line-height: 1.5;
         }
         
-        /* BOTÕES TOTALMENTE CLICÁVEIS */
         .btn {
             background: #222; 
             border: 4px solid #fff; 
@@ -55,9 +56,7 @@
             width: 90%;
             max-width: 300px;
             cursor: pointer;
-            display: block;
-            pointer-events: auto; /* Garante que aceite cliques */
-            position: relative;
+            text-align: center;
         }
         
         .btn:active { background: #444; transform: scale(0.98); }
@@ -68,7 +67,7 @@
             padding: 15px; 
             font-family: 'Press Start 2P', cursive; 
             font-size: 18px;
-            width: 90%;
+            width: 80%;
             max-width: 250px;
             text-align: center; 
             text-transform: uppercase;
@@ -85,138 +84,156 @@
         .status-box {
             margin-top: 20px;
             font-size: 9px;
-            color: #aaa;
+            color: #ffeb3b;
             padding: 0 20px;
             text-align: center;
+            line-height: 1.4;
         }
 
-        /* JOGO OCULTO NO INÍCIO */
+        /* AREA DO JOGO */
         #game-screen {
             display: none;
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            touch-action: none;
         }
 
-        canvas { display: block; background: #000; }
+        canvas { display: block; }
 
         #ui {
-            position: absolute; top: 15px; width: 100%;
+            position: absolute; top: 20px; width: 100%;
             display: flex; justify-content: center; pointer-events: none; z-index: 100;
         }
         .score-board {
-            background: rgba(0, 0, 0, 0.8); padding: 10px 20px;
-            border: 2px solid #fff; display: flex; gap: 15px; color: #fff;
+            background: rgba(0, 0, 0, 0.8); padding: 12px 24px;
+            border: 2px solid rgba(255,255,255,0.3); display: flex; gap: 20px; 
+            color: #fff; font-size: 18px;
         }
 
-        /* CONTROLES */
+        /* CONTROLES MOBILE */
         #joystick-container {
             position: absolute; bottom: 40px; left: 30px; width: 120px; height: 120px;
             background: rgba(255, 255, 255, 0.1); border-radius: 50%; z-index: 110;
-            touch-action: none;
+            touch-action: none; border: 2px solid rgba(255,255,255,0.2);
         }
         #joystick-knob {
-            width: 50px; height: 50px; background: rgba(255, 255, 255, 0.3);
+            width: 55px; height: 55px; background: rgba(255, 255, 255, 0.3);
             border-radius: 50%; position: absolute; left: 50%; top: 50%; 
             transform: translate(-50%, -50%); pointer-events: none;
         }
         #kick-btn {
-            position: absolute; bottom: 50px; right: 40px; width: 90px; height: 90px;
+            position: absolute; bottom: 50px; right: 40px; width: 95px; height: 95px;
             background: rgba(255, 255, 255, 0.1); border: 4px solid #fff;
             border-radius: 50%; display: flex; justify-content: center; align-items: center;
-            z-index: 110; color: #fff; font-size: 30px; touch-action: none;
+            z-index: 110; color: #fff; font-size: 32px; touch-action: none;
         }
     </style>
 </head>
 <body>
 
 <div id="lobby-screen">
-    <div class="title">MAMOBALL ONLINE</div>
+    <div class="title">MAMOBALL<br>MULTIPLAYER</div>
     
-    <!-- Menu Inicial -->
     <div id="panel-main" class="panel active-panel">
         <div class="btn btn-blue" id="btn-create">CRIAR SALA</div>
         <div class="btn btn-red" id="btn-show-join">ENTRAR</div>
-        <div class="status-box" id="main-status">Aguardando...</div>
+        <div class="status-box" id="main-status">Conecte com seu amigo usando o código.</div>
     </div>
 
-    <!-- Criar Sala -->
     <div id="panel-host" class="panel">
-        <p style="font-size: 10px;">SEU CÓDIGO:</p>
-        <h1 id="display-code" style="color:#42a5f5; font-size: 30px;">----</h1>
-        <div class="status-box" id="host-status">Iniciando servidor...</div>
-        <div class="btn" id="btn-cancel-host">VOLTAR</div>
+        <p style="font-size: 10px; color: #aaa;">CÓDIGO DA SALA:</p>
+        <h1 id="display-code" style="color:#42a5f5; font-size: 34px; letter-spacing: 4px;">----</h1>
+        <div class="status-box" id="host-status">Iniciando...</div>
+        <div class="btn" id="btn-cancel-host" style="margin-top: 20px; font-size: 10px; padding: 12px;">CANCELAR</div>
     </div>
 
-    <!-- Entrar na Sala -->
     <div id="panel-join" class="panel">
-        <p style="font-size: 10px;">CÓDIGO DO AMIGO:</p>
-        <input type="text" id="room-input" maxlength="4" placeholder="ABCD">
+        <p style="font-size: 10px; color: #aaa;">DIGITE O CÓDIGO:</p>
+        <input type="text" id="room-input" maxlength="4" placeholder="....">
         <div class="btn btn-red" id="btn-connect">CONECTAR</div>
         <div class="status-box" id="join-status"></div>
-        <div class="btn" id="btn-cancel-join">VOLTAR</div>
+        <div class="btn" id="btn-cancel-join" style="margin-top: 10px; font-size: 10px; padding: 12px;">VOLTAR</div>
     </div>
 </div>
 
 <div id="game-screen">
-    <div id="ui"><div class="score-board"><span id="sL">00</span> : <span id="sR">00</span></div></div>
+    <div id="ui">
+        <div class="score-board">
+            <span id="sL" style="color:#42a5f5">00</span>
+            <span style="opacity:0.5">:</span>
+            <span id="sR" style="color:#ef5350">00</span>
+        </div>
+    </div>
     <canvas id="gameCanvas"></canvas>
     <div id="joystick-container"><div id="joystick-knob"></div></div>
     <div id="kick-btn">X</div>
 </div>
 
 <script>
-    // --- NAVEGAÇÃO E EVENTOS ---
+    // --- CONFIGURAÇÕES DO JOGO (VELOCIDADE REDUZIDA AQUI!) ---
+    const WORLD_W = 2400;
+    const WORLD_H = 1400;
+    const GOAL_H = 300;
+    const P_RADIUS = 35;
+    const B_RADIUS = 20;
+    
+    // FISICA AJUSTADA (Mais lento e com mais controle)
+    const ACCEL = 0.38;        // Aceleração reduzida
+    const MAX_SPEED = 5.0;     // Velocidade Máxima reduzida (antes era 7.5)
+    const FRICTION = 0.95;     // Atrito maior para o jogador não patinar
+    const BALL_FRICTION = 0.988; 
+    const KICK_POWER = 18;     // Chute ligeiramente mais fraco para acompanhar a velocidade
+
     const lobby = document.getElementById('lobby-screen');
     const gameS = document.getElementById('game-screen');
-    const mainStatus = document.getElementById('main-status');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let peer, conn, isHost = false, gameStarted = false;
+    let lInput = { x: 0, y: 0, k: false, r: 0 }, rInput = { x: 0, y: 0, k: false, r: 0 };
+    let p1 = { x: 450, y: WORLD_H/2, vx: 0, vy: 0 }, p2 = { x: 1950, y: WORLD_H/2, vx: 0, vy: 0 }, ball = { x: 1200, y: WORLD_H/2, vx: 0, vy: 0 };
+    let score = { l: 0, r: 0 };
+    let cam = { x: 1200, y: WORLD_H/2 };
+
+    // --- SISTEMA DE CLIQUE ---
+    function bind(id, fn) {
+        const el = document.getElementById(id);
+        const handle = (e) => { e.preventDefault(); fn(); };
+        el.addEventListener('click', handle);
+        el.addEventListener('touchstart', handle);
+    }
+
+    bind('btn-create', () => { showP('panel-host'); initHost(); });
+    bind('btn-show-join', () => { showP('panel-join'); });
+    bind('btn-cancel-host', () => { if(peer) peer.destroy(); showP('panel-main'); });
+    bind('btn-cancel-join', () => { showP('panel-main'); });
+    bind('btn-connect', () => { initJoin(); });
 
     function showP(id) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active-panel'));
         document.getElementById(id).classList.add('active-panel');
     }
 
-    // Função para registrar clique de forma segura em Mobile
-    function bindBtn(id, callback) {
-        const el = document.getElementById(id);
-        el.addEventListener('click', (e) => { e.preventDefault(); callback(); });
-        el.addEventListener('touchstart', (e) => { e.preventDefault(); callback(); });
-    }
-
-    bindBtn('btn-create', () => { showP('panel-host'); initHost(); });
-    bindBtn('btn-show-join', () => { showP('panel-join'); });
-    bindBtn('btn-cancel-host', () => { if(peer) peer.destroy(); showP('panel-main'); });
-    bindBtn('btn-cancel-join', () => { showP('panel-main'); });
-    bindBtn('btn-connect', () => { joinRoom(); });
-
-    // --- MULTIPLAYER CORE ---
-    let peer, conn, isHost = false, gameStarted = false;
-
+    // --- MULTIPLAYER ---
     function initHost() {
-        const code = Math.random().toString(36).substring(2,6).toUpperCase();
+        const code = Math.random().toString(36).substring(2,6).toUpperCase().replace(/[01OI]/g, 'X');
         document.getElementById('display-code').innerText = code;
-        
         if(peer) peer.destroy();
         peer = new Peer("mamo-" + code.toLowerCase());
-        
-        peer.on('open', () => document.getElementById('host-status').innerText = "Aguardando amigo...");
+        peer.on('open', () => document.getElementById('host-status').innerText = "Aguardando jogador vermelho...");
         peer.on('connection', c => { conn = c; isHost = true; startMatch(); });
-        peer.on('error', () => { alert("Erro ao criar sala. Tente outro código."); showP('panel-main'); });
     }
 
-    function joinRoom() {
+    function initJoin() {
         const code = document.getElementById('room-input').value.trim().toLowerCase();
         if(!code) return;
-        
-        document.getElementById('join-status').innerText = "Conectando...";
+        document.getElementById('join-status').innerText = "Localizando sala...";
         if(peer) peer.destroy();
         peer = new Peer();
-
         peer.on('open', () => {
             conn = peer.connect("mamo-" + code);
             conn.on('open', () => { isHost = false; startMatch(); });
-            conn.on('error', () => document.getElementById('join-status').innerText = "Sala não encontrada.");
+            conn.on('error', () => document.getElementById('join-status').innerText = "Erro: Sala não existe.");
         });
     }
 
@@ -224,133 +241,191 @@
         lobby.style.display = 'none';
         gameS.style.display = 'block';
         gameStarted = true;
+        updateSize();
         
         conn.on('data', d => {
-            if(isHost) rInputs = d;
-            else { gState = d; syncGame(); }
+            if(isHost) rInput = d;
+            else { p1 = d.p1; p2 = d.p2; ball = d.ball; score = d.score; updateScoreUI(); }
         });
 
-        if(isHost) { resetPos(); runHostLoop(); }
-        else runClientLoop();
+        if(isHost) requestAnimationFrame(hostLoop);
+        else requestAnimationFrame(clientLoop);
     }
 
-    // --- JOGO ---
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const WORLD_W = 2200, WORLD_H = 1300, GOAL = 280;
-    
-    let lInput = { x: 0, y: 0, k: false, r: 0 }, rInputs = { x: 0, y: 0, k: false, r: 0 }, gState = null;
-    let p1 = { x: 400, y: 650, vx: 0, vy: 0 }, p2 = { x: 1800, y: 650, vx: 0, vy: 0 }, ball = { x: 1100, y: 650, vx: 0, vy: 0 };
-    let score = { l: 0, r: 0 };
+    function updateScoreUI() {
+        document.getElementById('sL').innerText = score.l.toString().padStart(2,'0');
+        document.getElementById('sR').innerText = score.r.toString().padStart(2,'0');
+    }
 
+    // --- FISICA ---
+    function moveEnt(e, input) {
+        e.vx += input.x * ACCEL; 
+        e.vy += input.y * ACCEL;
+        
+        // Limita a velocidade do jogador (Foi adicionado para evitar que corram muito rápido)
+        let speed = Math.sqrt(e.vx*e.vx + e.vy*e.vy);
+        if(speed > MAX_SPEED) {
+            e.vx = (e.vx/speed) * MAX_SPEED;
+            e.vy = (e.vy/speed) * MAX_SPEED;
+        }
+
+        e.x += e.vx; e.y += e.vy;
+        e.vx *= FRICTION; e.vy *= FRICTION;
+
+        // Borda do campo
+        if(e.x < P_RADIUS) e.x = P_RADIUS; if(e.x > WORLD_W-P_RADIUS) e.x = WORLD_W-P_RADIUS;
+        if(e.y < P_RADIUS) e.y = P_RADIUS; if(e.y > WORLD_H-P_RADIUS) e.y = WORLD_H-P_RADIUS;
+        
+        // Drible Seguro e Controle de Bola
+        const dx = ball.x - e.x, dy = ball.y - e.y, dist = Math.sqrt(dx*dx+dy*dy);
+        if(input.k && dist < 75) {
+            ball.x = e.x + Math.cos(input.r) * (P_RADIUS + B_RADIUS + 2);
+            ball.y = e.y + Math.sin(input.r) * (P_RADIUS + B_RADIUS + 2);
+            ball.vx = e.vx * 1.1; ball.vy = e.vy * 1.1;
+        } else if(dist < P_RADIUS + B_RADIUS) {
+            let ang = Math.atan2(dy, dx);
+            ball.vx += Math.cos(ang) * 2.5; ball.vy += Math.sin(ang) * 2.5;
+        }
+    }
+
+    function physics() {
+        moveEnt(p1, lInput);
+        moveEnt(p2, rInput);
+
+        // Movimento da bola
+        ball.x += ball.vx; ball.y += ball.vy;
+        ball.vx *= BALL_FRICTION; ball.vy *= BALL_FRICTION;
+
+        // Limites da Bola e Gols
+        const midH = WORLD_H/2, goalHalf = GOAL_H/2;
+        
+        // Parede Cima/Baixo
+        if(ball.y < B_RADIUS) { ball.y = B_RADIUS; ball.vy *= -0.7; }
+        if(ball.y > WORLD_H-B_RADIUS) { ball.y = WORLD_H-B_RADIUS; ball.vy *= -0.7; }
+        
+        // Parede Esquerda e Gol Esquerdo
+        if(ball.x < B_RADIUS) {
+            if(ball.y > midH-goalHalf && ball.y < midH+goalHalf) { score.r++; reset(); }
+            else { ball.x = B_RADIUS; ball.vx *= -0.7; }
+        }
+        // Parede Direita e Gol Direito
+        if(ball.x > WORLD_W-B_RADIUS) {
+            if(ball.y > midH-goalHalf && ball.y < midH+goalHalf) { score.l++; reset(); }
+            else { ball.x = WORLD_W-B_RADIUS; ball.vx *= -0.7; }
+        }
+
+        // Sincronização da Rede
+        conn.send({ p1, p2, ball, score });
+        updateScoreUI();
+    }
+
+    function reset() {
+        p1.x = 450; p1.y = WORLD_H/2; p1.vx = p1.vy = 0;
+        p2.x = 1950; p2.y = WORLD_H/2; p2.vx = p2.vy = 0;
+        ball.x = 1200; ball.y = WORLD_H/2; ball.vx = ball.vy = 0;
+    }
+
+    // --- RENDERING ---
+    function drawField() {
+        // Gramado
+        ctx.fillStyle = '#2e7d32'; ctx.fillRect(0,0,WORLD_W, WORLD_H);
+        
+        // Linhas de campo
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 6;
+        ctx.strokeRect(0,0,WORLD_W, WORLD_H); // Borda campo
+        ctx.beginPath(); ctx.moveTo(WORLD_W/2, 0); ctx.lineTo(WORLD_W/2, WORLD_H); ctx.stroke(); // Meio
+        ctx.beginPath(); ctx.arc(WORLD_W/2, WORLD_H/2, 180, 0, Math.PI*2); ctx.stroke(); // Circulo central
+        
+        const midH = WORLD_H/2;
+        const goalHalf = GOAL_H/2;
+
+        // REDES DOS GOLS (Nova aparência)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; // Fundo da rede transparente
+        ctx.fillRect(-60, midH - goalHalf, 60, GOAL_H);
+        ctx.fillRect(WORLD_W, midH - goalHalf, 60, GOAL_H);
+
+        // Desenhar a grade da rede
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for(let i=10; i<GOAL_H; i+=20) {
+            ctx.moveTo(-60, midH - goalHalf + i); ctx.lineTo(0, midH - goalHalf + i);
+            ctx.moveTo(WORLD_W, midH - goalHalf + i); ctx.lineTo(WORLD_W+60, midH - goalHalf + i);
+        }
+        ctx.stroke();
+
+        // Traves sólidas brancas
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 8;
+        ctx.strokeRect(-60, midH - goalHalf, 60, GOAL_H);
+        ctx.strokeRect(WORLD_W, midH - goalHalf, 60, GOAL_H);
+    }
+
+    function draw() {
+        ctx.setTransform(1,0,0,1,0,0);
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        
+        const myP = isHost ? p1 : p2;
+        cam.x += (myP.x - cam.x) * 0.1;
+        cam.y += (myP.y - cam.y) * 0.1;
+        
+        const zoom = 0.65;
+        ctx.scale(zoom, zoom);
+        ctx.translate(-cam.x + (canvas.width/2)/zoom, -cam.y + (canvas.height/2)/zoom);
+
+        drawField();
+
+        // Players e Bola
+        drawCirc(p1.x, p1.y, P_RADIUS, '#42a5f5', lInput.r);
+        drawCirc(p2.x, p2.y, P_RADIUS, '#ef5350', isHost ? rInput.r : rInput.r);
+        drawCirc(ball.x, ball.y, B_RADIUS, '#fff', 0, true);
+    }
+
+    function drawCirc(x, y, r, c, rot, isBall=false) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.beginPath(); ctx.arc(0,0,r,0,7);
+        ctx.fillStyle = c; ctx.fill(); 
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 4; ctx.stroke();
+        if(!isBall) {
+            ctx.rotate(rot);
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillRect(r-12, -6, 18, 12);
+        }
+        ctx.restore();
+    }
+
+    function hostLoop() { physics(); draw(); requestAnimationFrame(hostLoop); }
+    function clientLoop() { 
+        conn.send(lInput); 
+        draw(); 
+        requestAnimationFrame(clientLoop); 
+    }
+
+    // --- CONTROLES DE INTERFACE (MOBILE) ---
     function updateSize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-    window.addEventListener('resize', updateSize); updateSize();
+    window.addEventListener('resize', updateSize);
 
-    // Controles Touch
     const jCont = document.getElementById('joystick-container'), jKnob = document.getElementById('joystick-knob');
-    const kBtn = document.getElementById('kick-btn');
+    jCont.addEventListener('touchstart', moveJ, {passive:false});
+    jCont.addEventListener('touchmove', moveJ, {passive:false});
+    jCont.addEventListener('touchend', () => { lInput.x = 0; lInput.y = 0; jKnob.style.transform = 'translate(-50%,-50%)'; });
 
-    jCont.addEventListener('touchstart', touchMove, {passive: false});
-    jCont.addEventListener('touchmove', touchMove, {passive: false});
-    jCont.addEventListener('touchend', () => { lInput.x = 0; lInput.y = 0; jKnob.style.transform = 'translate(-50%, -50%)'; });
-    kBtn.addEventListener('touchstart', (e) => { e.preventDefault(); lInput.k = true; });
-    kBtn.addEventListener('touchend', (e) => { e.preventDefault(); lInput.k = false; });
-
-    function touchMove(e) {
+    function moveJ(e) {
         e.preventDefault();
-        const r = jCont.getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height/2;
+        const rect = jCont.getBoundingClientRect(), cx = rect.left+rect.width/2, cy = rect.top+rect.height/2;
         const t = e.touches[0];
-        let dx = t.clientX - cx, dy = t.clientY - cy, d = Math.sqrt(dx*dx+dy*dy), max = r.width/2;
-        if(d > max) { dx *= max/d; dy *= max/d; }
+        let dx = t.clientX - cx, dy = t.clientY - cy, dist = Math.sqrt(dx*dx+dy*dy), max = rect.width/2;
+        if(dist > max) { dx *= max/dist; dy *= max/dist; }
         lInput.x = dx/max; lInput.y = dy/max; lInput.r = Math.atan2(dy, dx);
         jKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
     }
 
-    // Rede
-    setInterval(() => {
-        if(!gameStarted || !conn || !conn.open) return;
-        if(isHost) conn.send({ p1, p2, ball, score });
-        else conn.send(lInput);
-    }, 20);
-
-    function syncGame() {
-        if(!gState) return;
-        p1.x = gState.p1.x; p1.y = gState.p1.y;
-        p2.x = gState.p2.x; p2.y = gState.p2.y;
-        ball.x = gState.ball.x; ball.y = gState.ball.y;
-        document.getElementById('sL').innerText = gState.score.l.toString().padStart(2,'0');
-        document.getElementById('sR').innerText = gState.score.r.toString().padStart(2,'0');
-    }
-
-    function resetPos() {
-        p1.x = 400; p1.y = 650; p1.vx = p1.vy = 0;
-        p2.x = 1800; p2.y = 650; p2.vx = p2.vy = 0;
-        ball.x = 1100; ball.y = 650; ball.vx = ball.vy = 0;
-    }
-
-    function moveEnt(e, input) {
-        e.vx += input.x * 0.55; e.vy += input.y * 0.55;
-        e.x += e.vx; e.y += e.vy;
-        e.vx *= 0.98; e.vy *= 0.98;
-        // Bordas
-        if(e.x < 35) e.x = 35; if(e.x > WORLD_W-35) e.x = WORLD_W-35;
-        if(e.y < 35) e.y = 35; if(e.y > WORLD_H-35) e.y = WORLD_H-35;
-        
-        // Drible / Chute
-        const dx = ball.x - e.x, dy = ball.y - e.y, dist = Math.sqrt(dx*dx+dy*dy);
-        if(input.k && dist < 65) {
-            ball.x = e.x + Math.cos(input.r) * 60;
-            ball.y = e.y + Math.sin(input.r) * 60;
-            ball.vx = e.vx; ball.vy = e.vy;
-        } else if(dist < 52) {
-            const ang = Math.atan2(dy, dx);
-            ball.vx += Math.cos(ang) * 2; ball.vy += Math.sin(ang) * 2;
-        }
-    }
-
-    function runHostLoop() {
-        moveEnt(p1, lInput);
-        moveEnt(p2, rInputs);
-        ball.x += ball.vx; ball.y += ball.vy;
-        ball.vx *= 0.99; ball.vy *= 0.99;
-
-        // Gols
-        if(ball.x < 20 && Math.abs(ball.y - 650) < 140) { score.r++; resetPos(); }
-        if(ball.x > WORLD_W-20 && Math.abs(ball.y - 650) < 140) { score.l++; resetPos(); }
-        // Parede bola
-        if(ball.x < 20 || ball.x > WORLD_W-20) ball.vx *= -0.8;
-        if(ball.y < 20 || ball.y > WORLD_H-20) ball.vy *= -0.8;
-
-        draw();
-        requestAnimationFrame(runHostLoop);
-    }
-
-    function runClientLoop() { draw(); requestAnimationFrame(runClientLoop); }
-
-    function draw() {
-        ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height);
-        const me = isHost ? p1 : p2;
-        const zoom = 0.65;
-        ctx.scale(zoom, zoom);
-        ctx.translate(-me.x + (canvas.width/2)/zoom, -me.y + (canvas.height/2)/zoom);
-
-        // Campo
-        ctx.fillStyle = '#1b5e20'; ctx.fillRect(0,0,WORLD_W, WORLD_H);
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.strokeRect(0,0,WORLD_W, WORLD_H);
-        ctx.beginPath(); ctx.moveTo(WORLD_W/2, 0); ctx.lineTo(WORLD_W/2, WORLD_H); ctx.stroke();
-        
-        // Players
-        drawCirc(p1.x, p1.y, 35, '#42a5f5');
-        drawCirc(p2.x, p2.y, 35, '#ef5350');
-        drawCirc(ball.x, ball.y, 18, '#fff');
-    }
-
-    function drawCirc(x, y, r, c) {
-        ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
-        ctx.fillStyle = c; ctx.fill(); ctx.stroke();
-    }
+    const kBtn = document.getElementById('kick-btn');
+    kBtn.addEventListener('touchstart', (e) => { e.preventDefault(); lInput.k = true; });
+    kBtn.addEventListener('touchend', (e) => { e.preventDefault(); lInput.k = false; });
+    kBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); lInput.k = false; });
 </script>
 </body>
 </html>
+
 
 ```
