@@ -4,230 +4,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MamoBall Online - Pixel Controls</title>
+    <title>MamoBall Online - Servidor Lobby</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        * { 
-            box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent; 
-            user-select: none;
-        }
-        
-        body, html {
-            margin: 0; padding: 0;
-            width: 100%; height: 100%;
-            background-color: #000;
-            font-family: 'Press Start 2P', cursive;
-            overflow: hidden;
-        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; font-family: 'Press Start 2P', cursive; overflow: hidden; }
 
-        /* --- MENU INICIAL SEGURO --- */
+        /* --- LOBBY SERVER --- */
         #lobby-screen {
-            position: fixed;
-            top: 0; left: 0; 
-            width: 100vw; height: 100vh;
-            background: #0a0a0a;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #0a0a0a; z-index: 9999; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: white;
         }
         
-        .title { 
-            color: #42a5f5; 
-            font-size: 20px; 
-            margin-bottom: 40px; 
-            text-shadow: 3px 3px 0 #ef5350;
-            text-align: center;
-            line-height: 1.5;
-        }
+        .title { color: #42a5f5; font-size: 20px; margin-bottom: 30px; text-shadow: 3px 3px 0 #ef5350; text-align: center; line-height: 1.5; }
         
         .btn {
-            background: #222; 
-            border: 4px solid #fff; 
-            color: #fff;
-            padding: 20px; 
-            font-family: 'Press Start 2P', cursive;
-            font-size: 14px; 
-            margin: 10px; 
-            width: 90%;
-            max-width: 300px;
-            cursor: pointer;
-            text-align: center;
-            box-shadow: 6px 6px 0px rgba(0,0,0,0.8);
+            background: #222; border: 4px solid #fff; color: #fff; padding: 20px; font-family: 'Press Start 2P', cursive;
+            font-size: 14px; margin: 10px; width: 90%; max-width: 320px; cursor: pointer; text-align: center;
+            box-shadow: 6px 6px 0px rgba(0,0,0,0.8); transition: transform 0.1s, box-shadow 0.1s;
         }
-        
-        .btn:active { 
-            background: #444; 
-            transform: translate(4px, 4px);
-            box-shadow: 2px 2px 0px rgba(0,0,0,0.8);
-        }
+        .btn:active { background: #444; transform: translate(4px, 4px); box-shadow: 2px 2px 0px rgba(0,0,0,0.8); }
         .btn-blue { border-color: #42a5f5; color: #42a5f5; }
         .btn-red { border-color: #ef5350; color: #ef5350; }
+        .btn-green { border-color: #4caf50; color: #4caf50; display: none; } /* Oculto até o P2 entrar */
+        
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: #666; color: #666; transform: none; box-shadow: 6px 6px 0px rgba(0,0,0,0.8); }
 
-        #room-input {
-            padding: 15px; 
-            font-family: 'Press Start 2P', cursive; 
-            font-size: 18px;
-            width: 80%;
-            max-width: 250px;
-            text-align: center; 
-            text-transform: uppercase;
-            background: #111; 
-            color: #fff; 
-            border: 4px solid #666; 
-            margin-bottom: 15px;
-            outline: none;
+        .input-box {
+            padding: 15px; font-family: 'Press Start 2P', cursive; font-size: 16px;
+            width: 90%; max-width: 320px; text-align: center; text-transform: uppercase;
+            background: #111; color: #fff; border: 4px solid #666; margin-bottom: 15px; outline: none;
             box-shadow: 6px 6px 0px rgba(0,0,0,0.8);
         }
 
         .panel { display: none; flex-direction: column; align-items: center; width: 100%; }
         .active-panel { display: flex; }
 
-        .status-box {
-            margin-top: 20px;
-            font-size: 9px;
-            color: #ffeb3b;
-            padding: 0 20px;
-            text-align: center;
-            line-height: 1.4;
-        }
+        .status-box { margin-top: 15px; font-size: 10px; color: #ffeb3b; padding: 0 20px; text-align: center; line-height: 1.4; }
 
-        /* --- AREA DO JOGO --- */
-        #game-screen {
-            display: none;
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            touch-action: none;
+        /* Estilo da Sala de Espera */
+        .room-info {
+            background: rgba(255,255,255,0.05); border: 2px dashed #666;
+            width: 90%; max-width: 320px; padding: 20px; margin-bottom: 20px; text-align: left;
         }
+        .player-slot { font-size: 12px; margin: 15px 0; display: flex; align-items: center; }
+        .dot { width: 15px; height: 15px; border-radius: 50%; display: inline-block; margin-right: 10px; border: 2px solid #fff; }
+        .dot-blue { background: #42a5f5; }
+        .dot-red { background: #ef5350; }
+        .dot-empty { background: transparent; border-style: dashed; }
 
+        /* --- JOGO --- */
+        #game-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
         canvas { display: block; }
-
-        #ui {
-            position: absolute; top: 20px; width: 100%;
-            display: flex; justify-content: center; pointer-events: none; z-index: 100;
-        }
+        #ui { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 100; }
+        .score-board { background: #000; padding: 15px 25px; border: 4px solid #fff; display: flex; gap: 20px; color: #fff; font-size: 18px; box-shadow: 6px 6px 0px rgba(0,0,0,0.8); }
         
-        /* Placar Pixelado */
-        .score-board {
-            background: #000; padding: 15px 25px;
-            border: 4px solid #fff; display: flex; gap: 20px; 
-            color: #fff; font-size: 18px;
-            box-shadow: 6px 6px 0px rgba(0,0,0,0.8);
-        }
-
-        /* --- CONTROLES MOBILE PIXELADOS --- */
-        #joystick-container {
-            position: absolute; bottom: 40px; left: 30px; 
-            width: 130px; height: 130px;
-            background: rgba(0, 0, 0, 0.4); 
-            border: 4px solid #fff;
-            box-shadow: 6px 6px 0px rgba(0,0,0,0.6);
-            z-index: 110; touch-action: none;
-        }
-        
-        #joystick-knob {
-            width: 50px; height: 50px; 
-            background: #fff;
-            border: 4px solid #aaa;
-            box-shadow: inset -4px -4px 0px rgba(0,0,0,0.2), 4px 4px 0px rgba(0,0,0,0.6);
-            position: absolute; left: 50%; top: 50%; 
-            transform: translate(-50%, -50%); pointer-events: none;
-        }
-
-        #kick-btn {
-            position: absolute; bottom: 50px; right: 40px; 
-            width: 100px; height: 100px;
-            background: #ef5350; 
-            border: 4px solid #fff;
-            box-shadow: 6px 6px 0px rgba(0,0,0,0.6);
-            display: flex; justify-content: center; align-items: center;
-            z-index: 110; color: #fff; font-size: 32px; 
-            text-shadow: 3px 3px 0px #000;
-            touch-action: none; cursor: pointer;
-        }
-        
-        #kick-btn:active { 
-            background: #d32f2f;
-            transform: translate(4px, 4px);
-            box-shadow: 2px 2px 0px rgba(0,0,0,0.6);
-        }
+        #joystick-container { position: absolute; bottom: 40px; left: 30px; width: 130px; height: 130px; background: rgba(0, 0, 0, 0.4); border: 4px solid #fff; box-shadow: 6px 6px 0px rgba(0,0,0,0.6); z-index: 110; touch-action: none; }
+        #joystick-knob { width: 50px; height: 50px; background: #fff; border: 4px solid #aaa; box-shadow: inset -4px -4px 0px rgba(0,0,0,0.2), 4px 4px 0px rgba(0,0,0,0.6); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        #kick-btn { position: absolute; bottom: 50px; right: 40px; width: 100px; height: 100px; background: #ef5350; border: 4px solid #fff; box-shadow: 6px 6px 0px rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 110; color: #fff; font-size: 32px; text-shadow: 3px 3px 0px #000; touch-action: none; cursor: pointer; }
+        #kick-btn:active { background: #d32f2f; transform: translate(4px, 4px); box-shadow: 2px 2px 0px rgba(0,0,0,0.6); }
     </style>
 </head>
 <body>
 
-<!-- LOBBY SEGURO -->
 <div id="lobby-screen">
-    <div class="title">MAMOBALL<br>MULTIPLAYER</div>
+    <div class="title">SERVIDOR<br>MAMOBALL</div>
     
+    <!-- ESCOLHA INICIAL -->
     <div id="panel-main" class="panel active-panel">
-        <div class="btn btn-blue" id="btn-create">CRIAR SALA</div>
-        <div class="btn btn-red" id="btn-show-join">ENTRAR</div>
-        <div class="status-box" id="main-status">Conecte com seu amigo usando o código.</div>
+        <div class="btn btn-blue" id="btn-show-create">CRIAR SALA</div>
+        <div class="btn btn-red" id="btn-show-join">ENTRAR EM SALA</div>
+        <div class="status-box">Escolha uma opção para jogar online.</div>
     </div>
 
-    <div id="panel-host" class="panel">
-        <p style="font-size: 10px; color: #aaa;">CÓDIGO DA SALA:</p>
-        <h1 id="display-code" style="color:#42a5f5; font-size: 34px; letter-spacing: 4px;">----</h1>
-        <div class="status-box" id="host-status">Iniciando...</div>
-        <div class="btn" id="btn-cancel-host" style="margin-top: 20px; font-size: 10px; padding: 12px;">CANCELAR</div>
+    <!-- CRIAR SALA NOME -->
+    <div id="panel-create-name" class="panel">
+        <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">NOME DA SUA SALA:</p>
+        <input type="text" class="input-box" id="create-room-input" maxlength="10" placeholder="EX: BRASIL">
+        <div class="btn btn-blue" id="btn-do-create">ABRIR SALA</div>
+        <div class="btn" id="btn-back-1">VOLTAR</div>
     </div>
 
-    <div id="panel-join" class="panel">
-        <p style="font-size: 10px; color: #aaa;">DIGITE O CÓDIGO:</p>
-        <input type="text" id="room-input" maxlength="4" placeholder="....">
-        <div class="btn btn-red" id="btn-connect">CONECTAR</div>
+    <!-- ENTRAR SALA NOME -->
+    <div id="panel-join-name" class="panel">
+        <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">QUAL A SALA DO AMIGO?</p>
+        <input type="text" class="input-box" id="join-room-input" maxlength="10" placeholder="NOME DA SALA">
+        <div class="btn btn-red" id="btn-do-join">BUSCAR</div>
         <div class="status-box" id="join-status"></div>
-        <div class="btn" id="btn-cancel-join" style="margin-top: 10px; font-size: 10px; padding: 12px;">VOLTAR</div>
+        <div class="btn" id="btn-back-2">VOLTAR</div>
+    </div>
+
+    <!-- LOBBY DE ESPERA (A SALA) -->
+    <div id="panel-waiting-room" class="panel">
+        <h2 style="color: #fff; font-size: 16px; margin-bottom: 10px;">SALA: <span id="room-name-display" style="color: #ffeb3b;">---</span></h2>
+        
+        <div class="room-info">
+            <div class="player-slot">
+                <span class="dot dot-blue"></span> 1. HOST (AZUL) - <span style="color:#4caf50; margin-left: 5px;">PRONTO</span>
+            </div>
+            <div class="player-slot" id="slot-p2">
+                <span class="dot dot-empty"></span> 2. DESAFIANTE - <span style="color:#aaa; margin-left: 5px;">AGUARDANDO...</span>
+            </div>
+        </div>
+
+        <div class="status-box" id="waiting-status">Esperando o jogador vermelho entrar...</div>
+        
+        <div class="btn btn-green" id="btn-start-game">COMEÇAR PARTIDA</div>
+        <div class="btn" id="btn-cancel-room" style="font-size: 10px;">FECHAR SALA</div>
     </div>
 </div>
 
-<!-- JOGO -->
 <div id="game-screen">
-    <div id="ui">
-        <div class="score-board">
-            <span id="sL" style="color:#42a5f5">00</span>
-            <span style="opacity:0.5">:</span>
-            <span id="sR" style="color:#ef5350">00</span>
-        </div>
-    </div>
+    <div id="ui"><div class="score-board"><span id="sL" style="color:#42a5f5">00</span><span style="opacity:0.5">:</span><span id="sR" style="color:#ef5350">00</span></div></div>
     <canvas id="gameCanvas"></canvas>
-    
-    <!-- CONTROLES PIXELADOS -->
     <div id="joystick-container"><div id="joystick-knob"></div></div>
     <div id="kick-btn">X</div>
 </div>
 
 <script>
-    // --- CONFIGURAÇÕES DO JOGO (FÍSICA IDEAL PRESERVADA) ---
-    const WORLD_W = 2400;
-    const WORLD_H = 1400;
-    const GOAL_H = 300;
-    const P_RADIUS = 35;
-    const B_RADIUS = 20;
-    
-    const ACCEL = 0.38;        
-    const MAX_SPEED = 5.0;     
-    const FRICTION = 0.95;     
-    const BALL_FRICTION = 0.988; 
-    const KICK_POWER = 18;     
-
-    const lobby = document.getElementById('lobby-screen');
-    const gameS = document.getElementById('game-screen');
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-
-    let peer, conn, isHost = false, gameStarted = false;
-    let lInput = { x: 0, y: 0, k: false, r: 0 }, rInput = { x: 0, y: 0, k: false, r: 0 };
-    let p1 = { x: 450, y: WORLD_H/2, vx: 0, vy: 0 }, p2 = { x: 1950, y: WORLD_H/2, vx: 0, vy: 0 }, ball = { x: 1200, y: WORLD_H/2, vx: 0, vy: 0 };
-    let score = { l: 0, r: 0 };
-    let cam = { x: 1200, y: WORLD_H/2 };
-
-    // --- SISTEMA DE CLIQUE DO MENU ---
+    // --- SISTEMA DE CLIQUE ---
     function bind(id, fn) {
         const el = document.getElementById(id);
         const handle = (e) => { e.preventDefault(); fn(); };
@@ -235,71 +132,142 @@
         el.addEventListener('touchstart', handle);
     }
 
-    bind('btn-create', () => { showP('panel-host'); initHost(); });
-    bind('btn-show-join', () => { showP('panel-join'); });
-    bind('btn-cancel-host', () => { if(peer) peer.destroy(); showP('panel-main'); });
-    bind('btn-cancel-join', () => { showP('panel-main'); });
-    bind('btn-connect', () => { initJoin(); });
-
     function showP(id) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active-panel'));
         document.getElementById(id).classList.add('active-panel');
     }
 
-    // --- MULTIPLAYER ---
-    function initHost() {
-        const code = Math.random().toString(36).substring(2,6).toUpperCase().replace(/[01OI]/g, 'X');
-        document.getElementById('display-code').innerText = code;
-        if(peer) peer.destroy();
-        peer = new Peer("mamo-" + code.toLowerCase());
-        peer.on('open', () => document.getElementById('host-status').innerText = "Aguardando jogador vermelho...");
-        peer.on('connection', c => { conn = c; isHost = true; startMatch(); });
-    }
+    // Navegação Menu
+    bind('btn-show-create', () => { showP('panel-create-name'); document.getElementById('create-room-input').value = ''; });
+    bind('btn-show-join', () => { showP('panel-join-name'); document.getElementById('join-room-input').value = ''; document.getElementById('join-status').innerText = ''; });
+    bind('btn-back-1', () => showP('panel-main'));
+    bind('btn-back-2', () => showP('panel-main'));
+    bind('btn-cancel-room', () => { if(peer) peer.destroy(); showP('panel-main'); });
 
-    function initJoin() {
-        const code = document.getElementById('room-input').value.trim().toLowerCase();
-        if(!code) return;
-        document.getElementById('join-status').innerText = "Localizando sala...";
+    // --- LÓGICA DO SERVIDOR/SALA (PEERJS) ---
+    let peer, conn, isHost = false, gameStarted = false;
+
+    // HOST: Criando a Sala
+    bind('btn-do-create', () => {
+        let roomName = document.getElementById('create-room-input').value.trim().toUpperCase();
+        if(!roomName) roomName = "SALA" + Math.floor(Math.random()*1000);
+        
+        showP('panel-waiting-room');
+        document.getElementById('room-name-display').innerText = roomName;
+        document.getElementById('slot-p2').innerHTML = '<span class="dot dot-empty"></span> 2. DESAFIANTE - <span style="color:#aaa; margin-left: 5px;">AGUARDANDO...</span>';
+        document.getElementById('btn-start-game').style.display = 'none';
+        document.getElementById('waiting-status').innerText = "Servidor Aberto! Passe o nome da sala para o amigo.";
+
         if(peer) peer.destroy();
-        peer = new Peer();
-        peer.on('open', () => {
-            conn = peer.connect("mamo-" + code);
-            conn.on('open', () => { isHost = false; startMatch(); });
-            conn.on('error', () => document.getElementById('join-status').innerText = "Erro: Sala não existe.");
+        peer = new Peer("mmb-" + roomName.toLowerCase()); // Prefixo mmb- para não chocar com outros apps
+
+        peer.on('connection', c => { 
+            conn = c; 
+            isHost = true; 
+            setupHostLobby(); 
+        });
+        peer.on('error', err => {
+            alert("Este nome de sala já está em uso! Escolha outro.");
+            showP('panel-create-name');
+        });
+    });
+
+    function setupHostLobby() {
+        document.getElementById('slot-p2').innerHTML = '<span class="dot dot-red"></span> 2. DESAFIANTE - <span style="color:#ef5350; margin-left: 5px;">CONECTADO!</span>';
+        document.getElementById('waiting-status').innerText = "Todos os jogadores na sala!";
+        document.getElementById('btn-start-game').style.display = 'block'; // Mostra botão de iniciar
+        
+        conn.on('data', d => {
+            if(d.cmd === 'READY') {
+                // Confirmação de que o cliente tá vivo
+            } else if (gameStarted) {
+                rInput = d; // Inputs no jogo
+            }
+        });
+        
+        conn.on('close', () => {
+            alert("O Desafiante saiu da sala.");
+            location.reload();
         });
     }
 
+    // HOST: Clica em começar
+    bind('btn-start-game', () => {
+        if(conn && conn.open) {
+            conn.send({ cmd: 'START_MATCH' }); // Manda ordem pro cliente começar
+            startMatch();
+        }
+    });
+
+    // CLIENTE: Entrando na Sala
+    bind('btn-do-join', () => {
+        const roomName = document.getElementById('join-room-input').value.trim().toLowerCase();
+        if(!roomName) return;
+        
+        document.getElementById('join-status').innerText = "Buscando servidor...";
+        if(peer) peer.destroy();
+        peer = new Peer();
+
+        peer.on('open', () => {
+            conn = peer.connect("mmb-" + roomName);
+            conn.on('open', () => {
+                isHost = false;
+                showP('panel-waiting-room');
+                document.getElementById('room-name-display').innerText = roomName.toUpperCase();
+                document.getElementById('slot-p2').innerHTML = '<span class="dot dot-red"></span> 2. VOCÊ - <span style="color:#ef5350; margin-left: 5px;">PRONTO</span>';
+                document.getElementById('waiting-status').innerText = "Aguardando o dono da sala (AZUL) iniciar a partida...";
+                document.getElementById('btn-start-game').style.display = 'none'; // Cliente não pode iniciar
+                document.getElementById('btn-cancel-room').innerText = "SAIR DA SALA";
+
+                conn.send({ cmd: 'READY' });
+
+                conn.on('data', d => {
+                    if(d.cmd === 'START_MATCH') {
+                        startMatch(); // Host mandou começar!
+                    } else if (gameStarted) {
+                        p1 = d.p1; p2 = d.p2; ball = d.ball; score = d.score; updateScoreUI();
+                    }
+                });
+
+                conn.on('close', () => {
+                    alert("O Host fechou o servidor.");
+                    location.reload();
+                });
+            });
+            conn.on('error', () => document.getElementById('join-status').innerText = "Sala fechada ou cheia.");
+        });
+        peer.on('error', () => { document.getElementById('join-status').innerText = "Sala não encontrada. Verifique o nome."; });
+    });
+
+    // --- INICIO DO JOGO REAL ---
     function startMatch() {
-        lobby.style.display = 'none';
-        gameS.style.display = 'block';
+        document.getElementById('lobby-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
         gameStarted = true;
         updateSize();
         
-        conn.on('data', d => {
-            if(isHost) rInput = d;
-            else { p1 = d.p1; p2 = d.p2; ball = d.ball; score = d.score; updateScoreUI(); }
-        });
-
         if(isHost) requestAnimationFrame(hostLoop);
         else requestAnimationFrame(clientLoop);
     }
+
+    // --- FÍSICA E JOGO (EXATAMENTE COMO ESTAVA) ---
+    const WORLD_W = 2400, WORLD_H = 1400, GOAL_H = 300, P_RADIUS = 35, B_RADIUS = 20;
+    const ACCEL = 0.38, MAX_SPEED = 5.0, FRICTION = 0.95, BALL_FRICTION = 0.988, KICK_POWER = 18;
+
+    const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+    let lInput = { x: 0, y: 0, k: false, r: 0 }, rInput = { x: 0, y: 0, k: false, r: 0 };
+    let p1 = { x: 450, y: WORLD_H/2, vx: 0, vy: 0 }, p2 = { x: 1950, y: WORLD_H/2, vx: 0, vy: 0 }, ball = { x: 1200, y: WORLD_H/2, vx: 0, vy: 0 };
+    let score = { l: 0, r: 0 }; let cam = { x: 1200, y: WORLD_H/2 };
 
     function updateScoreUI() {
         document.getElementById('sL').innerText = score.l.toString().padStart(2,'0');
         document.getElementById('sR').innerText = score.r.toString().padStart(2,'0');
     }
 
-    // --- FISICA ---
     function moveEnt(e, input) {
-        e.vx += input.x * ACCEL; 
-        e.vy += input.y * ACCEL;
-        
+        e.vx += input.x * ACCEL; e.vy += input.y * ACCEL;
         let speed = Math.sqrt(e.vx*e.vx + e.vy*e.vy);
-        if(speed > MAX_SPEED) {
-            e.vx = (e.vx/speed) * MAX_SPEED;
-            e.vy = (e.vy/speed) * MAX_SPEED;
-        }
-
+        if(speed > MAX_SPEED) { e.vx = (e.vx/speed) * MAX_SPEED; e.vy = (e.vy/speed) * MAX_SPEED; }
         e.x += e.vx; e.y += e.vy;
         e.vx *= FRICTION; e.vy *= FRICTION;
 
@@ -312,33 +280,25 @@
             ball.y = e.y + Math.sin(input.r) * (P_RADIUS + B_RADIUS + 2);
             ball.vx = e.vx * 1.1; ball.vy = e.vy * 1.1;
         } else if(dist < P_RADIUS + B_RADIUS) {
-            let ang = Math.atan2(dy, dx);
-            ball.vx += Math.cos(ang) * 2.5; ball.vy += Math.sin(ang) * 2.5;
+            let ang = Math.atan2(dy, dx); ball.vx += Math.cos(ang) * 2.5; ball.vy += Math.sin(ang) * 2.5;
         }
     }
 
     function physics() {
-        moveEnt(p1, lInput);
-        moveEnt(p2, rInput);
-
-        ball.x += ball.vx; ball.y += ball.vy;
-        ball.vx *= BALL_FRICTION; ball.vy *= BALL_FRICTION;
+        moveEnt(p1, lInput); moveEnt(p2, rInput);
+        ball.x += ball.vx; ball.y += ball.vy; ball.vx *= BALL_FRICTION; ball.vy *= BALL_FRICTION;
 
         const midH = WORLD_H/2, goalHalf = GOAL_H/2;
-        
         if(ball.y < B_RADIUS) { ball.y = B_RADIUS; ball.vy *= -0.7; }
         if(ball.y > WORLD_H-B_RADIUS) { ball.y = WORLD_H-B_RADIUS; ball.vy *= -0.7; }
         
         if(ball.x < B_RADIUS) {
-            if(ball.y > midH-goalHalf && ball.y < midH+goalHalf) { score.r++; reset(); }
-            else { ball.x = B_RADIUS; ball.vx *= -0.7; }
+            if(ball.y > midH-goalHalf && ball.y < midH+goalHalf) { score.r++; reset(); } else { ball.x = B_RADIUS; ball.vx *= -0.7; }
         }
         if(ball.x > WORLD_W-B_RADIUS) {
-            if(ball.y > midH-goalHalf && ball.y < midH+goalHalf) { score.l++; reset(); }
-            else { ball.x = WORLD_W-B_RADIUS; ball.vx *= -0.7; }
+            if(ball.y > midH-goalHalf && ball.y < midH+goalHalf) { score.l++; reset(); } else { ball.x = WORLD_W-B_RADIUS; ball.vx *= -0.7; }
         }
-
-        conn.send({ p1, p2, ball, score });
+        if(conn && conn.open) conn.send({ p1, p2, ball, score });
         updateScoreUI();
     }
 
@@ -348,129 +308,62 @@
         ball.x = 1200; ball.y = WORLD_H/2; ball.vx = ball.vy = 0;
     }
 
-    // --- RENDERING ---
     function drawField() {
         ctx.fillStyle = '#2e7d32'; ctx.fillRect(0,0,WORLD_W, WORLD_H);
-        
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 6;
-        ctx.strokeRect(0,0,WORLD_W, WORLD_H); 
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 6; ctx.strokeRect(0,0,WORLD_W, WORLD_H); 
         ctx.beginPath(); ctx.moveTo(WORLD_W/2, 0); ctx.lineTo(WORLD_W/2, WORLD_H); ctx.stroke(); 
         ctx.beginPath(); ctx.arc(WORLD_W/2, WORLD_H/2, 180, 0, Math.PI*2); ctx.stroke(); 
         
-        const midH = WORLD_H/2;
-        const goalHalf = GOAL_H/2;
-
+        const midH = WORLD_H/2, goalHalf = GOAL_H/2;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; 
-        ctx.fillRect(-60, midH - goalHalf, 60, GOAL_H);
-        ctx.fillRect(WORLD_W, midH - goalHalf, 60, GOAL_H);
-
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for(let i=10; i<GOAL_H; i+=20) {
-            ctx.moveTo(-60, midH - goalHalf + i); ctx.lineTo(0, midH - goalHalf + i);
-            ctx.moveTo(WORLD_W, midH - goalHalf + i); ctx.lineTo(WORLD_W+60, midH - goalHalf + i);
-        }
-        ctx.stroke();
-
+        ctx.fillRect(-60, midH - goalHalf, 60, GOAL_H); ctx.fillRect(WORLD_W, midH - goalHalf, 60, GOAL_H);
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2; ctx.beginPath();
+        for(let i=10; i<GOAL_H; i+=20) { ctx.moveTo(-60, midH - goalHalf + i); ctx.lineTo(0, midH - goalHalf + i); ctx.moveTo(WORLD_W, midH - goalHalf + i); ctx.lineTo(WORLD_W+60, midH - goalHalf + i); } ctx.stroke();
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 8;
-        ctx.strokeRect(-60, midH - goalHalf, 60, GOAL_H);
-        ctx.strokeRect(WORLD_W, midH - goalHalf, 60, GOAL_H);
+        ctx.strokeRect(-60, midH - goalHalf, 60, GOAL_H); ctx.strokeRect(WORLD_W, midH - goalHalf, 60, GOAL_H);
     }
 
     function draw() {
-        ctx.setTransform(1,0,0,1,0,0);
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        
-        const myP = isHost ? p1 : p2;
-        cam.x += (myP.x - cam.x) * 0.1;
-        cam.y += (myP.y - cam.y) * 0.1;
-        
-        const zoom = 0.65;
-        ctx.scale(zoom, zoom);
-        ctx.translate(-cam.x + (canvas.width/2)/zoom, -cam.y + (canvas.height/2)/zoom);
+        ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height);
+        const myP = isHost ? p1 : p2; cam.x += (myP.x - cam.x) * 0.1; cam.y += (myP.y - cam.y) * 0.1;
+        const zoom = 0.65; ctx.scale(zoom, zoom); ctx.translate(-cam.x + (canvas.width/2)/zoom, -cam.y + (canvas.height/2)/zoom);
 
         drawField();
-
         drawCirc(p1.x, p1.y, P_RADIUS, '#42a5f5', lInput.r);
         drawCirc(p2.x, p2.y, P_RADIUS, '#ef5350', isHost ? rInput.r : rInput.r);
         drawCirc(ball.x, ball.y, B_RADIUS, '#fff', 0, true);
     }
 
     function drawCirc(x, y, r, c, rot, isBall=false) {
-        ctx.save(); ctx.translate(x, y);
-        ctx.beginPath(); ctx.arc(0,0,r,0,7);
-        ctx.fillStyle = c; ctx.fill(); 
-        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 4; ctx.stroke();
-        if(!isBall) {
-            ctx.rotate(rot);
-            ctx.fillStyle = 'rgba(255,255,255,0.6)';
-            ctx.fillRect(r-12, -6, 18, 12);
-        }
+        ctx.save(); ctx.translate(x, y); ctx.beginPath(); ctx.arc(0,0,r,0,7);
+        ctx.fillStyle = c; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 4; ctx.stroke();
+        if(!isBall) { ctx.rotate(rot); ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(r-12, -6, 18, 12); }
         ctx.restore();
     }
 
     function hostLoop() { physics(); draw(); requestAnimationFrame(hostLoop); }
-    function clientLoop() { conn.send(lInput); draw(); requestAnimationFrame(clientLoop); }
+    function clientLoop() { if(conn && conn.open) conn.send(lInput); draw(); requestAnimationFrame(clientLoop); }
 
-    // --- CONTROLES DE INTERFACE IOS FIX (POINTER EVENTS) ---
+    // --- CONTROLES PIXEL IOS FIX ---
     function updateSize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', updateSize);
 
-    const jCont = document.getElementById('joystick-container');
-    const jKnob = document.getElementById('joystick-knob');
+    const jCont = document.getElementById('joystick-container'), jKnob = document.getElementById('joystick-knob');
     let activePointerId = null;
 
-    // Pointer Events: Corrige o bug do iOS de perder o toque no meio da tela
-    jCont.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        activePointerId = e.pointerId;
-        jCont.setPointerCapture(activePointerId); // "Sequestra" o dedo!
-        moveJ(e);
-    });
-
-    jCont.addEventListener('pointermove', (e) => {
-        if (activePointerId === e.pointerId) {
-            e.preventDefault();
-            moveJ(e);
-        }
-    });
-
-    const stopJ = (e) => {
-        if (activePointerId === e.pointerId) {
-            activePointerId = null;
-            lInput.x = 0; lInput.y = 0;
-            jKnob.style.transform = 'translate(-50%,-50%)';
-        }
-    };
-
-    jCont.addEventListener('pointerup', stopJ);
-    jCont.addEventListener('pointercancel', stopJ);
+    jCont.addEventListener('pointerdown', (e) => { e.preventDefault(); activePointerId = e.pointerId; jCont.setPointerCapture(activePointerId); moveJ(e); });
+    jCont.addEventListener('pointermove', (e) => { if (activePointerId === e.pointerId) { e.preventDefault(); moveJ(e); } });
+    const stopJ = (e) => { if (activePointerId === e.pointerId) { activePointerId = null; lInput.x = 0; lInput.y = 0; jKnob.style.transform = 'translate(-50%,-50%)'; } };
+    jCont.addEventListener('pointerup', stopJ); jCont.addEventListener('pointercancel', stopJ);
 
     function moveJ(e) {
-        const rect = jCont.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        
-        // A matemática do movimento continua circular, mas o visual é quadrado!
-        let dx = e.clientX - cx;
-        let dy = e.clientY - cy;
-        let dist = Math.sqrt(dx*dx + dy*dy);
-        let max = rect.width / 2;
-        
-        if (dist > max) { 
-            dx *= max / dist; 
-            dy *= max / dist; 
-        }
-        
-        lInput.x = dx / max; 
-        lInput.y = dy / max; 
-        lInput.r = Math.atan2(dy, dx);
-        
+        const rect = jCont.getBoundingClientRect(), cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        let dx = e.clientX - cx, dy = e.clientY - cy, dist = Math.sqrt(dx*dx + dy*dy), max = rect.width / 2;
+        if (dist > max) { dx *= max / dist; dy *= max / dist; }
+        lInput.x = dx / max; lInput.y = dy / max; lInput.r = Math.atan2(dy, dx);
         jKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
     }
 
-    // Botão de Chute também blindado com Pointer Events
     const kBtn = document.getElementById('kick-btn');
     kBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); kBtn.setPointerCapture(e.pointerId); lInput.k = true; });
     kBtn.addEventListener('pointerup', (e) => { e.preventDefault(); lInput.k = false; });
