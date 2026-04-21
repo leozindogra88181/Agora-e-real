@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MamoBall Online - Servidor Oficial</title>
+    <title>Clutchbunder Online</title>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
@@ -18,12 +18,22 @@
             justify-content: center; align-items: center; color: white;
         }
         
-        .title { color: #42a5f5; font-size: 20px; margin-bottom: 30px; text-shadow: 3px 3px 0 #ef5350; text-align: center; line-height: 1.5; }
+        /* A NOVA LOGO: CLUTCHBUNDER */
+        .title { 
+            color: #42a5f5; 
+            font-size: 22px; 
+            margin-bottom: 40px; 
+            text-shadow: 4px 4px 0 #ef5350; 
+            text-align: center; 
+            line-height: 1.5;
+            letter-spacing: 2px;
+        }
         
+        /* USANDO BUTTON NATIVO PARA NÃO FALHAR NO IOS/ANDROID */
         .btn {
             background: #222; border: 4px solid #fff; color: #fff; padding: 20px; font-family: 'Press Start 2P', cursive;
             font-size: 14px; margin: 10px; width: 90%; max-width: 320px; cursor: pointer; text-align: center;
-            box-shadow: 6px 6px 0px rgba(0,0,0,0.8); transition: transform 0.1s, box-shadow 0.1s;
+            box-shadow: 6px 6px 0px rgba(0,0,0,0.8); transition: transform 0.1s, box-shadow 0.1s; outline: none;
         }
         .btn:active { background: #444; transform: translate(4px, 4px); box-shadow: 2px 2px 0px rgba(0,0,0,0.8); }
         .btn-blue { border-color: #42a5f5; color: #42a5f5; }
@@ -38,13 +48,13 @@
             background: #111; color: #fff; border: 4px solid #666; margin-bottom: 15px; outline: none;
             box-shadow: 6px 6px 0px rgba(0,0,0,0.8);
         }
+        .input-box:focus { border-color: #fff; }
 
         .panel { display: none; flex-direction: column; align-items: center; width: 100%; }
         .active-panel { display: flex; }
 
-        .status-box { margin-top: 15px; font-size: 9px; color: #ffeb3b; padding: 0 20px; text-align: center; line-height: 1.4; }
+        .status-box { margin-top: 15px; font-size: 9px; color: #ffeb3b; padding: 0 20px; text-align: center; line-height: 1.4; min-height: 20px; }
 
-        /* Estilo da Sala de Espera */
         .room-info {
             background: rgba(255,255,255,0.05); border: 2px dashed #666;
             width: 90%; max-width: 380px; padding: 20px; margin-bottom: 20px; text-align: left;
@@ -54,6 +64,13 @@
         .dot-blue { background: #42a5f5; }
         .dot-red { background: #ef5350; }
         .dot-empty { background: transparent; border-style: dashed; }
+
+        /* --- TELA DE ERRO FATAL --- */
+        #error-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 10000; flex-direction: column;
+            justify-content: center; align-items: center; color: white; text-align: center; padding: 20px;
+        }
 
         /* --- JOGO --- */
         #game-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
@@ -72,41 +89,44 @@
 <body>
 
 <div id="lobby-screen">
-    <div class="title">SERVIDOR<br>MAMOBALL</div>
+    <!-- NOVA LOGO -->
+    <div class="title">CLUTCHBUNDER</div>
     
-    <!-- NOVO: TELA DE NICKNAME -->
+    <!-- TELA DE NICKNAME -->
     <div id="panel-nickname" class="panel active-panel">
-        <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">SEU NICKNAME:</p>
+        <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">CRIE SEU NICKNAME:</p>
         <input type="text" class="input-box" id="nick-input" maxlength="8" placeholder="NOME (Max 8)">
-        <div class="btn btn-blue" id="btn-save-nick">SALVAR E ENTRAR</div>
+        <div class="status-box" id="nick-status"></div>
+        <button class="btn btn-blue" id="btn-save-nick">SALVAR E ENTRAR</button>
     </div>
 
     <!-- ESCOLHA INICIAL -->
     <div id="panel-main" class="panel">
-        <p style="font-size: 10px; color: #ffeb3b; margin-bottom: 20px;">JOGADOR: <span id="display-my-nick">---</span></p>
-        <div class="btn btn-blue" id="btn-show-create">CRIAR SALA</div>
-        <div class="btn btn-red" id="btn-show-join">ENTRAR EM SALA</div>
-        <div class="btn" id="btn-change-nick" style="font-size: 10px; padding: 12px; margin-top: 20px;">TROCAR NICK</div>
+        <p style="font-size: 10px; color: #ffeb3b; margin-bottom: 20px;">BEM-VINDO, <span id="display-my-nick">---</span>!</p>
+        <button class="btn btn-blue" id="btn-show-create">CRIAR SALA</button>
+        <button class="btn btn-red" id="btn-show-join">ENTRAR EM SALA</button>
+        <button class="btn" id="btn-change-nick" style="font-size: 10px; padding: 12px; margin-top: 20px;">TROCAR NICK</button>
     </div>
 
-    <!-- CRIAR SALA NOME -->
+    <!-- CRIAR SALA -->
     <div id="panel-create-name" class="panel">
         <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">NOME DA SUA SALA:</p>
         <input type="text" class="input-box" id="create-room-input" maxlength="10" placeholder="EX: BRASIL">
-        <div class="btn btn-blue" id="btn-do-create">ABRIR SALA</div>
-        <div class="btn" id="btn-back-1">VOLTAR</div>
+        <div class="status-box" id="create-status"></div>
+        <button class="btn btn-blue" id="btn-do-create">ABRIR SALA</button>
+        <button class="btn" id="btn-back-1">VOLTAR</button>
     </div>
 
-    <!-- ENTRAR SALA NOME -->
+    <!-- ENTRAR SALA -->
     <div id="panel-join-name" class="panel">
-        <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">QUAL A SALA DO AMIGO?</p>
+        <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">SALA DO AMIGO:</p>
         <input type="text" class="input-box" id="join-room-input" maxlength="10" placeholder="NOME DA SALA">
-        <div class="btn btn-red" id="btn-do-join">BUSCAR</div>
         <div class="status-box" id="join-status"></div>
-        <div class="btn" id="btn-back-2">VOLTAR</div>
+        <button class="btn btn-red" id="btn-do-join">BUSCAR</button>
+        <button class="btn" id="btn-back-2">VOLTAR</button>
     </div>
 
-    <!-- LOBBY DE ESPERA (A SALA) -->
+    <!-- LOBBY DE ESPERA -->
     <div id="panel-waiting-room" class="panel">
         <h2 style="color: #fff; font-size: 14px; margin-bottom: 10px;">SALA: <span id="room-name-display" style="color: #ffeb3b;">---</span></h2>
         
@@ -121,9 +141,15 @@
 
         <div class="status-box" id="waiting-status">Esperando o jogador vermelho...</div>
         
-        <div class="btn btn-green" id="btn-start-game">COMEÇAR PARTIDA</div>
-        <div class="btn" id="btn-cancel-room" style="font-size: 10px;">FECHAR SALA</div>
+        <button class="btn btn-green" id="btn-start-game">COMEÇAR PARTIDA</button>
+        <button class="btn" id="btn-cancel-room" style="font-size: 10px;">FECHAR SALA</button>
     </div>
+</div>
+
+<div id="error-overlay">
+    <h2 style="color: #ef5350;">CONEXÃO PERDIDA</h2>
+    <p id="error-msg" style="font-size: 10px; margin: 20px 0; line-height: 1.5;"></p>
+    <button class="btn" onclick="location.reload()">VOLTAR AO MENU</button>
 </div>
 
 <div id="game-screen">
@@ -142,81 +168,86 @@
 </div>
 
 <script>
-    // --- VARIÁVEIS GLOBAIS DE JOGADOR ---
     let myName = "";
     let enemyName = "";
 
-    // --- SISTEMA DE CLIQUE ---
-    function bind(id, fn) {
-        const el = document.getElementById(id);
-        const handle = (e) => { e.preventDefault(); fn(); };
-        el.addEventListener('click', handle);
-        el.addEventListener('touchstart', handle);
-    }
-
+    // Navegação Segura do Menu
     function showP(id) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active-panel'));
         document.getElementById(id).classList.add('active-panel');
     }
 
-    // --- SISTEMA DE NICKNAME E NAVEGAÇÃO ---
-    bind('btn-save-nick', () => {
+    document.getElementById('btn-save-nick').onclick = () => {
         let nick = document.getElementById('nick-input').value.trim().toUpperCase();
-        if(nick.length < 2) { alert("Nick muito curto!"); return; }
+        const status = document.getElementById('nick-status');
+        if(nick.length < 2) { 
+            status.innerText = "Nome deve ter pelo menos 2 letras!"; 
+            status.style.color = "#ef5350";
+            return; 
+        }
         myName = nick;
         document.getElementById('display-my-nick').innerText = myName;
+        status.innerText = "";
         showP('panel-main');
-    });
+    };
 
-    bind('btn-change-nick', () => { showP('panel-nickname'); });
-    bind('btn-show-create', () => { showP('panel-create-name'); document.getElementById('create-room-input').value = ''; });
-    bind('btn-show-join', () => { showP('panel-join-name'); document.getElementById('join-room-input').value = ''; document.getElementById('join-status').innerText = ''; });
-    bind('btn-back-1', () => showP('panel-main'));
-    bind('btn-back-2', () => showP('panel-main'));
-    bind('btn-cancel-room', () => { if(peer) peer.destroy(); showP('panel-main'); });
+    document.getElementById('btn-change-nick').onclick = () => showP('panel-nickname');
+    document.getElementById('btn-show-create').onclick = () => { showP('panel-create-name'); document.getElementById('create-status').innerText = ""; };
+    document.getElementById('btn-show-join').onclick = () => { showP('panel-join-name'); document.getElementById('join-status').innerText = ""; };
+    document.getElementById('btn-back-1').onclick = () => showP('panel-main');
+    document.getElementById('btn-back-2').onclick = () => showP('panel-main');
+    document.getElementById('btn-cancel-room').onclick = () => { if(peer) peer.destroy(); showP('panel-main'); };
 
-    // --- LÓGICA DO SERVIDOR/SALA (PEERJS) ---
+    function showErrorMsg(msg) {
+        document.getElementById('error-msg').innerText = msg;
+        document.getElementById('error-overlay').style.display = 'flex';
+    }
+
+    // --- LÓGICA DO SERVIDOR/SALA ---
     let peer, conn, isHost = false, gameStarted = false;
 
-    // HOST: Criando a Sala
-    bind('btn-do-create', () => {
+    // HOST
+    document.getElementById('btn-do-create').onclick = () => {
         let roomName = document.getElementById('create-room-input').value.trim().toUpperCase();
-        if(!roomName) roomName = "SALA" + Math.floor(Math.random()*1000);
+        const status = document.getElementById('create-status');
+        if(!roomName) { status.innerText = "Digite um nome para a sala!"; return; }
         
-        showP('panel-waiting-room');
-        document.getElementById('room-name-display').innerText = roomName;
-        document.getElementById('slot-name-1').innerText = myName;
-        document.getElementById('slot-p2').innerHTML = '<span class="dot dot-empty"></span> 2. --- <br><span style="color:#aaa; font-size: 8px; margin-top:5px;">(AGUARDANDO...)</span>';
-        document.getElementById('btn-start-game').style.display = 'none';
-        document.getElementById('waiting-status').innerText = "Servidor Aberto! Passe o nome da sala: " + roomName;
-
+        status.innerText = "Criando sala...";
+        
         if(peer) peer.destroy();
-        peer = new Peer("mmb-" + roomName.toLowerCase());
+        peer = new Peer("clb-" + roomName.toLowerCase()); // Novo prefixo CLB (Clutchbunder)
+
+        peer.on('open', () => {
+            showP('panel-waiting-room');
+            document.getElementById('room-name-display').innerText = roomName;
+            document.getElementById('slot-name-1').innerText = myName;
+            document.getElementById('slot-p2').innerHTML = '<span class="dot dot-empty"></span> 2. --- <br><span style="color:#aaa; font-size: 8px; margin-top:5px;">(AGUARDANDO...)</span>';
+            document.getElementById('btn-start-game').style.display = 'none';
+            document.getElementById('waiting-status').innerText = "Servidor Aberto! Diga para seu amigo entrar na sala: " + roomName;
+        });
 
         peer.on('connection', c => { 
-            // HOST RECEBE UMA TENTATIVA DE CONEXÃO
             c.on('open', () => {
-                const guestName = c.metadata ? c.metadata.pName : "DESCONHECIDO";
+                const guestName = c.metadata ? c.metadata.pName : "PLAYER 2";
                 
-                // SISTEMA DE BLOQUEIO DE NOME IGUAL
                 if(guestName === myName) {
                     c.send({ cmd: 'ERROR_NAME' });
-                    setTimeout(() => c.close(), 500); // Rejeita a conexão
+                    setTimeout(() => c.close(), 500); 
                 } else {
                     conn = c; 
                     isHost = true; 
                     enemyName = guestName;
                     setupHostLobby();
-                    conn.send({ cmd: 'WELCOME', hostName: myName }); // Aceita e manda o nome do host
+                    conn.send({ cmd: 'WELCOME', hostName: myName }); 
                 }
             });
         });
         
         peer.on('error', err => {
-            alert("Este nome de sala já está em uso! Escolha outro.");
-            showP('panel-create-name');
+            status.innerText = "Este nome de sala já está sendo usado. Escolha outro!";
+            status.style.color = "#ef5350";
         });
-    });
+    };
 
     function setupHostLobby() {
         document.getElementById('slot-p2').innerHTML = `<span class="dot dot-red"></span> 2. <span style="color:#ef5350;">${enemyName}</span> <br><span style="color:#4caf50; font-size: 8px; margin-top:5px;">(CONECTADO!)</span>`;
@@ -224,53 +255,52 @@
         document.getElementById('btn-start-game').style.display = 'block'; 
         
         conn.on('data', d => {
-            if (gameStarted) { rInput = d; }
+            if (gameStarted) rInput = d; 
         });
         
         conn.on('close', () => {
-            alert(enemyName + " saiu da sala.");
-            location.reload();
+            if(gameStarted) showErrorMsg(`O jogador ${enemyName} se desconectou da partida.`);
+            else { alert(enemyName + " saiu da sala."); location.reload(); }
         });
     }
 
-    // HOST: Clica em começar
-    bind('btn-start-game', () => {
+    document.getElementById('btn-start-game').onclick = () => {
         if(conn && conn.open) {
             conn.send({ cmd: 'START_MATCH' }); 
             startMatch();
         }
-    });
+    };
 
-    // CLIENTE: Entrando na Sala
-    bind('btn-do-join', () => {
+    // CLIENTE
+    document.getElementById('btn-do-join').onclick = () => {
         const roomName = document.getElementById('join-room-input').value.trim().toLowerCase();
-        if(!roomName) return;
+        const status = document.getElementById('join-status');
+        if(!roomName) { status.innerText = "Digite o nome da sala!"; return; }
         
-        document.getElementById('join-status').innerText = "Buscando servidor...";
+        status.innerText = "Buscando servidor...";
+        status.style.color = "#ffeb3b";
+        
         if(peer) peer.destroy();
         peer = new Peer();
 
         peer.on('open', () => {
-            // Manda o nome (myName) dentro dos metadata da conexão
-            conn = peer.connect("mmb-" + roomName, { metadata: { pName: myName }, reliable: true });
+            conn = peer.connect("clb-" + roomName, { metadata: { pName: myName }, reliable: true }); // Novo prefixo CLB
             
             conn.on('open', () => {
                 isHost = false;
                 
                 conn.on('data', d => {
                     if(d.cmd === 'ERROR_NAME') {
-                        document.getElementById('join-status').innerText = "NOME JÁ EM USO NESTA SALA! TROQUE O NICK.";
-                        document.getElementById('join-status').style.color = "#ef5350";
+                        status.innerText = "NICKNAME JÁ EM USO! Volte e mude seu Nick.";
+                        status.style.color = "#ef5350";
                         conn.close();
                     } 
                     else if(d.cmd === 'WELCOME') {
                         enemyName = d.hostName;
                         showP('panel-waiting-room');
                         document.getElementById('room-name-display').innerText = roomName.toUpperCase();
-                        
                         document.getElementById('slot-name-1').innerText = enemyName;
                         document.getElementById('slot-p2').innerHTML = `<span class="dot dot-red"></span> 2. <span style="color:#ef5350;">${myName}</span> <br><span style="color:#4caf50; font-size: 8px; margin-top:5px;">(PRONTO)</span>`;
-                        
                         document.getElementById('waiting-status').innerText = "Aguardando " + enemyName + " (AZUL) iniciar a partida...";
                         document.getElementById('btn-start-game').style.display = 'none'; 
                         document.getElementById('btn-cancel-room').innerText = "SAIR DA SALA";
@@ -279,29 +309,26 @@
                         startMatch();
                     } 
                     else if (gameStarted) {
-                        p1 = d.p1; p2 = d.p2; ball = d.ball; score = d.score; updateScoreUI();
+                        gameState = d; 
                     }
                 });
 
                 conn.on('close', () => {
-                    if(gameStarted || document.getElementById('panel-waiting-room').classList.contains('active-panel')) {
-                        alert("O servidor foi fechado.");
-                        location.reload();
-                    }
+                    if(gameStarted) showErrorMsg("O servidor (Host) encerrou a partida ou perdeu a conexão.");
+                    else { alert("O servidor foi fechado."); location.reload(); }
                 });
             });
-            conn.on('error', () => document.getElementById('join-status').innerText = "Sala fechada ou cheia.");
+            conn.on('error', () => { status.innerText = "Sala fechada ou cheia."; status.style.color = "#ef5350"; });
         });
-        peer.on('error', () => { document.getElementById('join-status').innerText = "Erro ao buscar sala. Verifique o nome."; });
-    });
+        peer.on('error', () => { status.innerText = "Sala não encontrada."; status.style.color = "#ef5350"; });
+    };
 
-    // --- INICIO DO JOGO REAL ---
+    // --- INICIO DO JOGO ---
     function startMatch() {
         document.getElementById('lobby-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
         gameStarted = true;
         
-        // Atualiza os nomes no placar (Host = Azul, Client = Vermelho)
         if(isHost) {
             document.getElementById('nameL').innerText = myName;
             document.getElementById('nameR').innerText = enemyName;
@@ -315,18 +342,25 @@
         else requestAnimationFrame(clientLoop);
     }
 
-    // --- FÍSICA E JOGO (VELOCIDADES PERFEITAS PRESERVADAS) ---
+    // --- FÍSICA E JOGO ---
     const WORLD_W = 2400, WORLD_H = 1400, GOAL_H = 300, P_RADIUS = 35, B_RADIUS = 20;
     const ACCEL = 0.38, MAX_SPEED = 5.0, FRICTION = 0.95, BALL_FRICTION = 0.988, KICK_POWER = 18;
 
     const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
-    let lInput = { x: 0, y: 0, k: false, r: 0 }, rInput = { x: 0, y: 0, k: false, r: 0 };
-    let p1 = { x: 450, y: WORLD_H/2, vx: 0, vy: 0 }, p2 = { x: 1950, y: WORLD_H/2, vx: 0, vy: 0 }, ball = { x: 1200, y: WORLD_H/2, vx: 0, vy: 0 };
-    let score = { l: 0, r: 0 }; let cam = { x: 1200, y: WORLD_H/2 };
+    
+    let lInput = { x: 0, y: 0, k: false, r: 0 }; 
+    let rInput = { x: 0, y: 0, k: false, r: 0 }; 
+    let gameState = null; 
+    
+    let p1 = { x: 450, y: WORLD_H/2, vx: 0, vy: 0 }; 
+    let p2 = { x: 1950, y: WORLD_H/2, vx: 0, vy: 0 }; 
+    let ball = { x: 1200, y: WORLD_H/2, vx: 0, vy: 0 };
+    let score = { l: 0, r: 0 }; 
+    let cam = { x: 1200, y: WORLD_H/2 };
 
-    function updateScoreUI() {
-        document.getElementById('sL').innerText = score.l.toString().padStart(2,'0');
-        document.getElementById('sR').innerText = score.r.toString().padStart(2,'0');
+    function updateScoreUI(sl, sr) {
+        document.getElementById('sL').innerText = sl.toString().padStart(2,'0');
+        document.getElementById('sR').innerText = sr.toString().padStart(2,'0');
     }
 
     function moveEnt(e, input) {
@@ -350,8 +384,11 @@
     }
 
     function physics() {
-        moveEnt(p1, lInput); moveEnt(p2, rInput);
-        ball.x += ball.vx; ball.y += ball.vy; ball.vx *= BALL_FRICTION; ball.vy *= BALL_FRICTION;
+        moveEnt(p1, lInput); 
+        moveEnt(p2, rInput);
+        
+        ball.x += ball.vx; ball.y += ball.vy; 
+        ball.vx *= BALL_FRICTION; ball.vy *= BALL_FRICTION;
 
         const midH = WORLD_H/2, goalHalf = GOAL_H/2;
         if(ball.y < B_RADIUS) { ball.y = B_RADIUS; ball.vy *= -0.7; }
@@ -361,26 +398,4 @@
             if(ball.y > midH-goalHalf && ball.y < midH+goalHalf) { score.r++; reset(); } else { ball.x = B_RADIUS; ball.vx *= -0.7; }
         }
         if(ball.x > WORLD_W-B_RADIUS) {
-            if(ball.y > midH-goalHalf && ball.y < midH+goalHalf) { score.l++; reset(); } else { ball.x = WORLD_W-B_RADIUS; ball.vx *= -0.7; }
-        }
-        if(conn && conn.open) conn.send({ p1, p2, ball, score });
-        updateScoreUI();
-    }
-
-    function reset() {
-        p1.x = 450; p1.y = WORLD_H/2; p1.vx = p1.vy = 0;
-        p2.x = 1950; p2.y = WORLD_H/2; p2.vx = p2.vy = 0;
-        ball.x = 1200; ball.y = WORLD_H/2; ball.vx = ball.vy = 0;
-    }
-
-    function drawField() {
-        ctx.fillStyle = '#2e7d32'; ctx.fillRect(0,0,WORLD_W, WORLD_H);
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 6; ctx.strokeRect(0,0,WORLD_W, WORLD_H); 
-        ctx.beginPath(); ctx.moveTo(WORLD_W/2, 0); ctx.lineTo(WORLD_W/2, WORLD_H); ctx.stroke(); 
-        ctx.beginPath(); ctx.arc(WORLD_W/2, WORLD_H/2, 180, 0, Math.PI*2); ctx.stroke(); 
-        
-        const midH = WORLD_H/2, goalHalf = GOAL_H/2;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; 
-        ctx.fillRect(-60, midH - goalHalf, 60, GOAL_H); ctx.fillRect(WORLD_W, midH - goalHalf, 60, GOAL_H);
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 2; ctx.beginPath();
-        for(let i=10; i<GOAL_H; i+=20) { ctx.moveTo(-60, midH - goalHalf + i); ctx.lineTo(0, midH - goalHalf + i); ctx
+            if(ball.y > midH-goalHalf && ball.y < m
